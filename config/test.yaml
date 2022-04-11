@@ -1,0 +1,20 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 240
+    path: data
+  model:
+    name: "tf_efficientnet_b0"
+    pretrained: False
+  optimizer:
+    name: Adam
+    lr: 1e-3
+  tpu: False
+  results_path: results
+experiments:
+  - optimizer:
+      name: Adam
+      lr: 1e-3
+  - optimizer:
+      name: Adam
+      lr: 1e-4

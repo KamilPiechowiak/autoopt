@@ -1,0 +1,1 @@
+from .small_resnet_20 import SmallResnet20

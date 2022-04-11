@@ -1,0 +1,24 @@
+from typing import Dict
+
+import sys
+import inspect
+from torch import nn
+import copy
+import timm
+from .sls import *
+from .small import *
+
+
+class ModelsFactory:
+    def __init__(self):
+        self.available_models = {}
+        for name, obj in inspect.getmembers(sys.modules[__name__]):
+            self.available_models[name] = obj
+
+    def get_model(self, config: Dict) -> nn.Module:
+        config = copy.deepcopy(config)
+        name = config["name"]
+        del config["name"]
+        if name in self.available_models.keys():
+            return self.available_models[name](**config)
+        return timm.create_model(config["name"], **config)

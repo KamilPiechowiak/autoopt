@@ -1,0 +1,163 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 32
+    path: data
+  model:
+    name: SmallResnet20
+    num_classes: 10
+  repeats: 1
+  results_path: results
+  epochs: 2
+  batch_size: 32
+  num_workers: 1
+  gcp: False
+  tpu: False
+experiments:
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: max
+      search_strategy: armijo
+      batch_strategy: single
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: max
+      search_strategy: armijo
+      batch_strategy: double
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: keep
+      search_strategy: armijo
+      batch_strategy: single
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.01
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.0003
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      c: 0.01
+      gamma: 2.0
+      search_strategy: armijo
+      batch_strategy: single
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      c: 0.01
+      gamma: 2.0
+      search_strategy: armijo
+      batch_strategy: double
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: keep
+      search_strategy: goldstein
+      batch_strategy: single
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: keep
+      search_strategy: goldstein
+      batch_strategy: double
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: keep
+      search_strategy: goldstein
+      batch_strategy: single
+      inner_optimizer:
+        name: Adam
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: keep
+      search_strategy: goldstein
+      batch_strategy: double
+      inner_optimizer:
+        name: Adam
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.01
+      inner_optimizer:
+        name: Adam
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: double
+      gamma: 1.01
+      inner_optimizer:
+        name: Adam
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: keep
+      search_strategy: goldstein
+      batch_strategy: single
+      inner_optimizer:
+        name: Adagrad
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: keep
+      search_strategy: goldstein
+      batch_strategy: double
+      inner_optimizer:
+        name: Adagrad
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.01
+      inner_optimizer:
+        name: Adagrad
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: double
+      gamma: 1.01
+      inner_optimizer:
+        name: Adagrad
