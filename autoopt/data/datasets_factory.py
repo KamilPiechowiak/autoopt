@@ -22,13 +22,23 @@ class DatasetsFactory:
             scale = (0.5, 1)
         else:
             scale = (0.1, 1)
-        preprocess_train = transforms.Compose([
-            transforms.RandomResizedCrop(config["resolution"], scale),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            stack,
-            normalize
-        ])
+
+        if config.get("noaugment", False):
+            preprocess_train = transforms.Compose([
+                transforms.Resize(config["resolution"]),
+                transforms.CenterCrop(config["resolution"]),
+                transforms.ToTensor(),
+                stack,
+                normalize
+            ])
+        else:
+            preprocess_train = transforms.Compose([
+                transforms.RandomResizedCrop(config["resolution"], scale),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                stack,
+                normalize
+            ])
 
         preprocess_val = transforms.Compose([
             transforms.Resize(config["resolution"]),

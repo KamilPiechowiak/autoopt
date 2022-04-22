@@ -19,7 +19,7 @@ class SimpleConnector(BaseConnector):
     def rendezvous(self, name) -> None:
         pass
 
-    def get_samplers(self, train_dataset, val_dataset) \
+    def get_samplers(self, train_dataset, val_dataset, shuffle_val=False) \
             -> Tuple[torch.utils.data.Sampler, torch.utils.data.Sampler]:
         train_sampler = torch.utils.data.RandomSampler(
             train_dataset
@@ -35,9 +35,11 @@ class SimpleConnector(BaseConnector):
     def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict):
         opt.step(**self._filter_optimizer_kwargs(opt, kwargs))
 
+    def reduce_gradients(self, opt: torch.optim.Optimizer) -> None:
+        return
+
     def all_avg(self, arr: List):
-        for i in range(len(arr)):
-            arr[i] = torch.mean(arr[i])
+        pass
 
     def print(self, msg, flush=False):
         print(msg, flush=flush)
@@ -47,3 +49,9 @@ class SimpleConnector(BaseConnector):
 
     def run(self, function: Callable, args: List, nprocs: int):
         function(0, *args)
+
+    def step(self):
+        pass
+
+    def all_gather(self, arr: List) -> List:
+        return arr

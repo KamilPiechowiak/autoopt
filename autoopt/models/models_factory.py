@@ -21,4 +21,4 @@ class ModelsFactory:
         del config["name"]
         if name in self.available_models.keys():
             return self.available_models[name](**config)
-        return timm.create_model(config["name"], **config)
+        return timm.create_model(name, **config)

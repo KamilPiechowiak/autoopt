@@ -17,27 +17,28 @@ def get_device_connector(config: Dict) -> BaseConnector:
         return SimpleConnector()
 
 
-def run(args: Dict):
-    logging.basicConfig(format=f"%(levelname)s:%(message)s", level={
+def run_experiments(rank: int, config: Dict, connector: BaseConnector, log: str):
+    logging.basicConfig(format=f"{rank}:%(levelname)s:%(message)s", level={
         "debug": logging.DEBUG,
         "info": logging.INFO,
         "error": logging.ERROR,
-    }[args.log.lower()])
+    }[log.lower()])
+    for experiment in config["experiments"]:
+        experiment_config = {
+            **copy.deepcopy(config["general"]),
+            **copy.deepcopy(experiment.copy())
+        }
+        repeats_start = experiment_config.get("repeats_start", 0)
+        for repeat in range(repeats_start, repeats_start + experiment_config["repeats"]):
+            train({**copy.deepcopy(experiment_config), "repeat": repeat}, connector)
 
+
+def run(args: Dict):
     config = read_yaml(args.config_path)
     connector = get_device_connector(config['general'])
 
-    def _run_experiments(rank: int, config: Dict, connector: BaseConnector):
-        for experiment in config["experiments"]:
-            experiment_config = {
-                **copy.deepcopy(config["general"]),
-                **copy.deepcopy(experiment.copy())
-            }
-            repeats_start = experiment_config.get("repeats_start", 0)
-            for repeat in range(repeats_start, repeats_start + experiment_config["repeats"]):
-                train({**copy.deepcopy(experiment_config), "repeat": repeat}, connector)
-
-    connector.run(_run_experiments, args=(config, connector), nprocs=config.get('num_cores'))
+    connector.run(run_experiments, args=(config, connector, args.log),
+                  nprocs=config["general"].get('num_cores'))
 
 
 if __name__ == "__main__":

@@ -1,39 +1,43 @@
 general:
   dataset:
     name: CIFAR10
-    resolution: 224
+    resolution: 32
     path: data
   model:
-    name: tf_efficientnet_b0
+    name: ResNet34
     num_classes: 10
   repeats: 1
   results_path: results
-  epochs: 10
+  epochs: 50
   batch_size: 16
   num_workers: 4
   gcp: True
   tpu: True
-  num_cores: 8
   bucket_path: gs://kamil-piechowiak-weights-transfer/autoopt
 experiments:
   - optimizer:
-      name: DistributedArmijoLineSearch
-      reset_strategy: increase
-      search_strategy: armijo
-      batch_strategy: single
-      gamma: 1.01
-      inner_optimizer:
-        name: SGD
-        lr: 1
-  - optimizer:
       name: SGD
-      lr: 0.01
+      lr: 1
+  - optimizer:
+      name: Adam
+      lr: 0.001
   - optimizer:
       name: DistributedArmijoLineSearch
       reset_strategy: increase
       search_strategy: armijo
       batch_strategy: single
       gamma: 1.001
+      c: 0.1
       inner_optimizer:
         name: SGD
+        lr: 1
+  - optimizer:
+      name: DistributedArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: Adam
         lr: 1

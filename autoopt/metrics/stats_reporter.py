@@ -4,6 +4,7 @@ from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -28,13 +29,16 @@ class StatsReporter:
         suf = '/train' if is_training else '/val'
         for metric, value in metric_values.items():
             name = f'{metric}{suf}'
-            self.writer.add_scalar(name, value, len(self.metric_values[name]))
-            self.metric_values[name].append(value)
+            if not isinstance(value, np.ndarray):
+                value = [value]
+            for v in value:
+                self.writer.add_scalar(name, v, len(self.metric_values[name]))
+                self.metric_values[name].append(float(v))
 
             if not dump:
                 continue
-
-            print(name, value)
+            if len(value) == 1:
+                print(name, value[0])
             plt.clf()
             for plot_name in [f'{metric}/train', f'{metric}/val']:
                 n = len(self.metric_values[plot_name])

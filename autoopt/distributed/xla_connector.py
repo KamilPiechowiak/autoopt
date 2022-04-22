@@ -19,7 +19,8 @@ class XlaConnector(BaseConnector):
     def rendezvous(self, name) -> None:
         xm.rendezvous(name)
 
-    def get_samplers(self, train_dataset, val_dataset) -> Tuple[torch.utils.data.Sampler, torch.utils.data.Sampler]:
+    def get_samplers(self, train_dataset, val_dataset, shuffle_val=False) \
+            -> Tuple[torch.utils.data.Sampler, torch.utils.data.Sampler]:
         train_sampler = torch.utils.data.distributed.DistributedSampler(
             train_dataset,
             num_replicas=xm.xrt_world_size(),
@@ -30,7 +31,7 @@ class XlaConnector(BaseConnector):
             val_dataset,
             num_replicas=xm.xrt_world_size(),
             rank=xm.get_ordinal(),
-            shuffle=False
+            shuffle=shuffle_val
         )
         return train_sampler, val_sampler
 
@@ -40,10 +41,16 @@ class XlaConnector(BaseConnector):
     def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict):
         xm.optimizer_step(opt, optimizer_args=self._filter_optimizer_kwargs(opt, kwargs))
 
+    def reduce_gradients(self, opt: torch.optim.Optimizer) -> None:
+        xm.reduce_gradients(opt)
+        xm.mark_step()
+
     def all_avg(self, arr: List):
-        arr = xm.all_reduce(xm.REDUCE_SUM, arr)
-        for elem in arr:
-            elem /= xm.xrt_world_size()
+        cctx = xm.CollectiveContext()
+        count = max(cctx.replica_devcount, cctx.world_size)
+        xm.all_reduce(
+            xm.REDUCE_SUM, arr, scale=1.0 / count, cctx=cctx)
+        # xm.all_reduce(xm.REDUCE_SUM, arr, scale=1.0 / xm.xrt_world_size())
 
     def print(self, msg, flush=False):
         xm.master_print(msg, flush=flush)
@@ -55,3 +62,12 @@ class XlaConnector(BaseConnector):
         global SERIAL_EXEC
         SERIAL_EXEC = xmp.MpSerialExecutor()
         xmp.spawn(function, args=args, nprocs=nprocs, start_method='fork')
+
+    def step(self):
+        xm.mark_step()
+
+    def all_gather(self, arr: List) -> List:
+        arr = xm.all_gather(torch.tensor(arr))
+        arr = [x.item() for x in arr]
+        xm.mark_step()
+        return arr

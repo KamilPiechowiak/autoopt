@@ -21,7 +21,10 @@ def get_path(config: Dict) -> str:
     data = [
         config['model'].get('print_name', config['model']['name']),
         config['dataset']['name'],
+        'noaugment' if config['dataset'].get('noaugment', False) else 'augment',
         *stringify_config(config['optimizer']),
-        config['repeat']
     ]
+    if 'append_to_name' in config:
+        data.append(config['append_to_name'])
+    data.append(config['repeat'])
     return os.path.join(config['results_path'], '_'.join(map(str, data)))

@@ -1,18 +1,21 @@
 from datetime import datetime
 from typing import Callable, Dict
+from matplotlib.pyplot import connect
 import torch
 from torch import nn
 import logging
 import os
-import shutil
+import numpy as np
 
 from autoopt.data.datasets_factory import DatasetsFactory
 from autoopt.distributed.base_connector import BaseConnector
 from autoopt.models.models_factory import ModelsFactory
 from autoopt.optimizers.optimizers_factory import OptimizersFactory
 from autoopt.metrics.stats_reporter import StatsReporter
+from autoopt.stats.profile_stats import ProfileStats
 from autoopt.utils.memorizing_iterator import MemorizingIterator
 from autoopt.utils.path_utils import get_path
+from autoopt.stats.gradient_direction_stats import GradientDirectionStats
 
 
 def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
@@ -45,26 +48,35 @@ def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
                     for key in keys:
                         if key in opt.state:
                             stats.update({key: opt.state[key]}, is_training=True, dump=False)
-        break  # TODO remove
+        # if i == 10:
+        #     break  # FIXME
     if is_training and i % grad_acc != 0:
         connector.optimizer_step(opt, model=model, loss_func=loss_func,
                                  data_iterator=loader_iterator)
         opt.zero_grad()
 
     metric_keys = list(metric_values.keys())
-    metric_list = []
+    arr = []
     for metric in metric_keys:
-        metric_list.append(torch.tensor(metric_values[metric], device=device).mean())
+        metric_values[metric] = torch.tensor(metric_values[metric], device=device)
+        arr.append(metric_values[metric])
 
-    connector.all_avg(metric_list)
+    connector.all_avg(arr)
+
     for i, metric in enumerate(metric_keys):
-        metric_values[metric] = metric_list[i].item()
-    if connector.is_master() and stats is not None:
-        stats.update(metric_values, is_training=is_training)
+        metric_values[metric] = arr[i]
+
+    for metric in metric_keys:
+        connector.step()
+        if connector.is_master() and stats is not None:
+            stats.update({
+                metric: metric_values[metric].mean().item(),
+                f"{metric}_detailed": metric_values[metric].cpu().numpy()
+            }, is_training=is_training)
 
     end_time = datetime.now()
     connector.print(end_time - start_time, flush=True)
-    return metric_values[gradeBy]
+    return metric_values[gradeBy].mean().item()
 
 
 def _save_model(connector: BaseConnector, model: nn.Module,
@@ -100,11 +112,25 @@ def train(config: Dict, connector: BaseConnector) -> None:
     }
     if connector.is_master():
         stats_reporter = StatsReporter(metrics, path)
-        stats_reporter.add_metrics(['num_iterations', 'lr', 'cosine'])
+        stats_reporter.add_metrics(['num_iterations', 'lr', 'cosine', 'loss_detailed',
+                                    'acc_detailed', 'acc5_detailed'])
     else:
         stats_reporter = None
 
-    train_sampler, val_sampler = connector.get_samplers(train_dataset, val_dataset)
+    if 'stats' in config and 'gradient_direction' in config['stats']:
+        gradient_direction_stats = GradientDirectionStats(config['stats']['gradient_direction'],
+                                                          path, connector)
+    else:
+        gradient_direction_stats = None
+
+    if 'stats' in config and 'profile' in config['stats']:
+        profile_stats = ProfileStats(**config['stats']['profile'],
+                                     path=path, connector=connector)
+    else:
+        profile_stats = None
+
+    train_sampler, val_sampler = connector.get_samplers(
+        train_dataset, val_dataset, gradient_direction_stats is not None)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -121,11 +147,21 @@ def train(config: Dict, connector: BaseConnector) -> None:
 
     best_loss = 1e10
     for epoch in range(config['epochs']):
-        if hasattr(train_sampler, "set_epoch"):
-            logging.info(f"Setting epoch {epoch}")
-            train_sampler.set_epoch(epoch + config['repeat'] * 2137)
         connector.print(f'EPOCH: {epoch}')
         model.train()
+        if gradient_direction_stats is not None:
+            gradient_direction_stats.analyse_gradients(model, loss_func, train_dataset,
+                                                       train_sampler, 0, True)
+            gradient_direction_stats.analyse_gradients(model, loss_func, val_dataset,
+                                                       val_sampler, 0, False)
+        if profile_stats is not None:
+            profile_stats.analyse_profiles(optimizer, model, loss_func, train_dataset,
+                                           train_sampler, 0, True)
+            profile_stats.analyse_profiles(optimizer, model, loss_func, val_dataset,
+                                           val_sampler, 0, False)
+
+        if hasattr(train_sampler, "set_epoch"):
+            train_sampler.set_epoch(epoch + config['repeat'] * 2137)
         _single_epoch(epoch, device, connector, model,
                       connector.wrap_data_loader(train_loader, device), loss_func, optimizer,
                       stats=stats_reporter, metrics=metrics, gradeBy='loss',
@@ -139,10 +175,10 @@ def train(config: Dict, connector: BaseConnector) -> None:
                                  grad_acc=config.get("grad_acc", 1))
             if loss < best_loss:
                 best_loss = loss
-                if config.get("checkpoint", True):
+                if config.get("checkpoint", False):
                     _save_model(connector, model, optimizer, f'{path}/best.pt')
 
-        if config.get("checkpoint", True) is True:
+        if config.get("checkpoint", False) is True:
             _save_model(connector, model, optimizer, f'{path}/current.pt')
             # if epoch % config['persist_state_every'] == config['persist_state_every'] - 1 and \
             #         connector.is_master() and os.path.exists(f'{path}/best.pt'):

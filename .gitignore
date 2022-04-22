@@ -6,3 +6,8 @@ test.py
 gradients
 __pycache__
 !autoopt/data
+.ipynb_checkpoints
+*.zip
+presentation
+paper
+tmp

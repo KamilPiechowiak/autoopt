@@ -1,3 +1,4 @@
+from decimal import ExtendedContext
 from typing import Any, Callable, Dict, List
 import inspect
 import logging
@@ -5,30 +6,38 @@ import logging
 import torch
 from torch import optim, nn
 import copy
+import time
+from autoopt.optimizers.extended_optimizer import ExtendedOptimizer
 
 from autoopt.utils.memorizing_iterator import MemorizingIterator
+from autoopt.utils.profile import profile
 
 
-class ArmijoLineSearch(optim.Optimizer):
+class ArmijoLineSearch(ExtendedOptimizer):
 
     def __init__(self, params: List[torch.Tensor], inner_optimizer: optim.Optimizer,
-                 max_lr: float = 1.0, beta: float = 0.9, c: float = 0.1,
+                 max_lr: float = 100.0, beta: float = 0.9, c: float = 0.1,
                  reset_strategy: str = 'keep', search_strategy: str = 'armijo',
                  batch_strategy: str = 'single', gamma: float = 2.0, max_iterations: int = 100,
-                 min_cosine: float = 0.01) -> None:
+                 min_cosine: float = 0.01, min_lr: float = 1e-5, goldstein_c: float = None) -> None:
         # self.step_kwargs = set(inspect.getfullargspec(self.step).args)
         self.step_kwargs = {"model", "loss_func", "data_iterator", "loss_value"}
-        print(self.step_kwargs)
         super(ArmijoLineSearch, self).__init__(params, {})
         assert reset_strategy in ['max', 'keep', 'increase']
         assert search_strategy in ['armijo', 'goldstein']
         assert batch_strategy in ['single', 'double']
         if search_strategy == 'goldstein' and c >= 0.5:
             raise ValueError("If search strategy is goldstein, c has to be smaller than 0.5")
-        self.state['lr'] = max_lr
+        self.state['lr'] = 1
         self.max_lr = max_lr
+        self.min_lr = min_lr
         self.beta = beta
         self.c = c
+        if goldstein_c is not None:
+            assert goldstein_c > c
+            self.goldstein_c = goldstein_c
+        else:
+            self.goldstein_c = 1-self.c
         self.reset_strategy = reset_strategy
         self.search_strategy = search_strategy
         self.batch_strategy = batch_strategy
@@ -39,14 +48,7 @@ class ArmijoLineSearch(optim.Optimizer):
         self.total_steps = 0
         self.cosine_breaks = 0
 
-    def state_dict(self) -> dict:
-        self.state['inner_optimizer'] = self.inner_optimizer.state_dict()
-        return super(ArmijoLineSearch, self).state_dict()
-
-    def load_state_dict(self, state_dict: dict) -> None:
-        super(ArmijoLineSearch, self).load_state_dict(state_dict)
-        self.inner_optimizer.load_state_dict(self.state['inner_optimizer'])
-
+    # @profile
     def step(self, model: nn.Module, loss_func: Callable[[torch.Tensor, torch.Tensor], float],
              data_iterator: MemorizingIterator, loss_value: torch.Tensor) -> None:
         with torch.no_grad():
@@ -63,32 +65,31 @@ class ArmijoLineSearch(optim.Optimizer):
                 self.zero_grad()
                 with torch.enable_grad():
                     X, y = next(data_iterator)
-                    loss_value = self._evaluate_model(model, loss_func, X, y)
+                    loss_value = self._evaluate_model(model, loss_func, X, y, average=False)
                     self._backpropagate_gradients(loss_value)
+            loss_value = self._reduce_average(loss_value)
             dot_product, cosine = self._gradient_vector_dot_product(self.param_groups, direction)
-            logging.debug(f"Cosine: {cosine}")
+            # logging.debug(f"Cosine: {cosine}")
             lr = self._reset_lr(self.state['lr'])
-
+            self._mark_step()
+            # tmp = []
+            # lr = self.max_lr  # FIXME
             for i in range(self.max_iterations):
                 self._assign_new_params(params_current, direction, lr=lr)
                 new_loss_value = self._evaluate_model(model, loss_func, X, y)
-                logging.debug(f"{i} {lr} {new_loss_value} {loss_value} " +
-                              f"{loss_value+self.c*lr*dot_product} " +
-                              f"{loss_value + (1-self.c)*lr*dot_product}")
 
-                if cosine < self.min_cosine:
+                if cosine < self.min_cosine:  # FIXME
                     self.cosine_breaks += 1
                     i = -1
-                    logging.debug(f"Cosine too small. Break {self.cosine_breaks/self.total_steps}")
+                    # logging.debug(f"Cosine too small. Break {self.cosine_breaks/self.total_steps}")
                     break
-
                 upper_bound_condition = (
                     new_loss_value <= loss_value + self.c*lr*dot_product
                 )
                 lower_bound_condition = (
-                    new_loss_value >= loss_value + (1-self.c)*lr*dot_product
+                    new_loss_value >= loss_value + self.goldstein_c*lr*dot_product
                 )
-                logging.debug(f"{upper_bound_condition} {lower_bound_condition}")
+                # logging.debug(f"{upper_bound_condition} {lower_bound_condition}")
                 if self.search_strategy == 'armijo':
                     if upper_bound_condition:
                         break
@@ -98,61 +99,37 @@ class ArmijoLineSearch(optim.Optimizer):
                     if upper_bound_condition and lower_bound_condition:
                         break
                     elif upper_bound_condition:
-                        lr = min(lr / self.beta, self.max_lr)
+                        lr = lr / self.beta
                     elif lower_bound_condition:
                         lr = lr * self.beta
                     else:
                         raise RuntimeError("Something very weird happened to loss value:" +
                                            f"{new_loss_value}")
+                if lr < self.min_lr:
+                    lr = self.min_lr
+                    break
+                if lr > self.max_lr:
+                    lr = self.max_lr
+                    break
+                self._mark_step()
+                # print(f"{i} {lr} {new_loss_value.item()} {loss_value.item()} " +
+                #       f"{(loss_value+self.c*lr*dot_product).item()} " +
+                #       f"{(loss_value + self.goldstein_c*lr*dot_product).item()}", flush=True)
+                # tmp.append([lr, new_loss_value.item(), (loss_value+self.c*lr*dot_product).item(),
+                #            (loss_value + self.goldstein_c*lr*dot_product).item()])
+                # lr *= self.beta
             self.state['num_iterations'] = i
             self.state['lr'] = lr
-            self.state['cosine'] = cosine.item()
-
-    def _get_direction(self, params_a: List[Dict[str, Any]], params_b: List[Dict[str, Any]]) \
-            -> List[Dict[str, List[torch.Tensor]]]:
-        res = []
-        for group_a, group_b in zip(params_a, params_b):
-            group_res = []
-            lr = group_b['lr']
-            for p_a, p_b in zip(group_a['params'], group_b['params']):
-                group_res.append(
-                    (p_b-p_a)/lr
-                )
-            res.append({
-                'params': group_res
-            })
-        return res
-
-    def _gradient_vector_dot_product(self, gradient: List[Dict[str, List[torch.Tensor]]],
-                                     vector: List[Dict[str, List[torch.Tensor]]]) -> float:
-        dot_product = 0.0
-        grad_len = 0.0
-        vector_len = 0.0
-        for group_gradient, group_vector in zip(gradient, vector):
-            for p_a, p_b in zip(group_gradient['params'], group_vector['params']):
-                dot_product += torch.sum(p_a.grad*p_b)
-                grad_len += torch.sum(p_a.grad*p_a.grad)
-                vector_len += torch.sum(p_b*p_b)
-
-        return dot_product, -dot_product/(grad_len*vector_len)**0.5
-
-    def _assign_new_params(self, params_current: List[Dict[str, Any]],
-                           direction: List[Dict[str, List[torch.Tensor]]], lr: float) -> None:
-        for group_model, group_current, group_direction in \
-                zip(self.param_groups, params_current, direction):
-            for p_model, p_current, p_direction in \
-                    zip(group_model['params'], group_current['params'], group_direction['params']):
-                p_model.data = p_current + lr*p_direction
-
-    def _evaluate_model(self, model: nn.Module,
-                        loss_func: Callable[[torch.Tensor, torch.Tensor], float],
-                        X: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        y_predicted = model(X)
-        loss = loss_func(y_predicted, y)
-        return loss
-
-    def _backpropagate_gradients(self, loss: torch.Tensor) -> None:
-        loss.backward()
+            self.state['cosine'] = cosine.cpu().item()
+            # import numpy as np
+            # import matplotlib.pyplot as plt
+            # tmp = np.array(tmp)
+            # plt.ylim((1.5, loss_value.item()))
+            # plt.scatter(tmp[:,0], tmp[:,1])
+            # plt.scatter(tmp[:,0], tmp[:,2])
+            # plt.scatter(tmp[:,0], tmp[:,3])
+            # plt.show()
+            # exit(0)
 
     def _reset_lr(self, lr: float) -> float:
         if self.reset_strategy == 'max':

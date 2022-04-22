@@ -1,0 +1,35 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 224
+    path: data
+  model:
+    name: tf_efficientnet_b0
+    num_classes: 10
+  repeats: 1
+  results_path: results
+  epochs: 100
+  batch_size: 16
+  num_workers: 4
+  gcp: True
+  tpu: True
+  bucket_path: gs://kamil-piechowiak-weights-transfer/autoopt
+experiments:
+  - optimizer:
+      name: SGD
+      lr: 1.0
+  - optimizer:
+      name: SGD
+      lr: 10.0
+  - optimizer:
+      name: Adagrad
+      lr: 0.1
+  - optimizer:
+      name: Adagrad
+      lr: 0.01
+  - optimizer:
+      name: Adagrad
+      lr: 0.001
+  - optimizer:
+      name: Adagrad
+      lr: 0.0001

@@ -19,7 +19,8 @@ class BaseConnector(ABC):
         return
 
     @abstractmethod
-    def get_samplers(self, train_dataset, val_dataset) -> Tuple[torch.utils.data.Sampler, torch.utils.data.Sampler]:
+    def get_samplers(self, train_dataset, val_dataset, shuffle_val=False) \
+            -> Tuple[torch.utils.data.Sampler, torch.utils.data.Sampler]:
         return
 
     @abstractmethod
@@ -28,6 +29,10 @@ class BaseConnector(ABC):
 
     @abstractmethod
     def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict):
+        return
+
+    @abstractmethod
+    def reduce_gradients(self, opt: torch.optim.Optimizer) -> None:
         return
 
     def _filter_optimizer_kwargs(self, opt: torch.optim.Optimizer, kwargs) -> Dict:
@@ -51,3 +56,11 @@ class BaseConnector(ABC):
     @abstractmethod
     def run(self, function: Callable, args: List, nprocs: int):
         return
+
+    @abstractmethod
+    def step(self):
+        pass
+
+    @abstractmethod
+    def all_gather(self, arr: List) -> List:
+        pass

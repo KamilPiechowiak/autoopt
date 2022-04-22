@@ -8,7 +8,7 @@ general:
     num_classes: 10
   repeats: 1
   results_path: results
-  epochs: 1
+  epochs: 10
   batch_size: 32
   num_workers: 1
   gcp: False
@@ -22,6 +22,9 @@ experiments:
       gamma: 1.01
       inner_optimizer:
         name: Adam
+      c: 0.01
+      max_iterations: 100
+      max_lr: 0.1
   - optimizer:
       name: ArmijoLineSearch
       reset_strategy: max
