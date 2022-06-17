@@ -16,6 +16,9 @@ class XlaConnector(BaseConnector):
     def is_master(self) -> bool:
         return xm.is_master_ordinal()
 
+    def get_rank(self) -> int:
+        return xm.get_ordinal()
+
     def rendezvous(self, name) -> None:
         xm.rendezvous(name)
 
@@ -67,7 +70,7 @@ class XlaConnector(BaseConnector):
         xm.mark_step()
 
     def all_gather(self, arr: List) -> List:
-        arr = xm.all_gather(torch.tensor(arr))
-        arr = [x.item() for x in arr]
+        arr = xm.all_gather(torch.tensor(arr, device=self.get_device()))
         xm.mark_step()
+        arr = [x.item() for x in arr]
         return arr

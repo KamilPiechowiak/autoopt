@@ -3,16 +3,19 @@ general:
     name: CIFAR10
     resolution: 32
     path: data
+    noaugment: True
   model:
-    name: SmallResnet20
+    name: ResNet34
     num_classes: 10
   repeats: 1
-  results_path: tmp
-  epochs: 10
-  batch_size: 32
-  num_workers: 1
-  gcp: False
+  repeats_start: 3
+  results_path: results
+  epochs: 50
+  batch_size: 128
+  num_workers: 2
+  gcp: True
   tpu: False
+  bucket_path: gs://autoopt
 experiments:
   - optimizer:
       name: ArmijoLineSearch

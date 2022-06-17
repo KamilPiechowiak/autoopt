@@ -19,7 +19,8 @@ class ArmijoLineSearch(ExtendedOptimizer):
                  max_lr: float = 100.0, beta: float = 0.9, c: float = 0.1,
                  reset_strategy: str = 'keep', search_strategy: str = 'armijo',
                  batch_strategy: str = 'single', gamma: float = 2.0, max_iterations: int = 100,
-                 min_cosine: float = 0.01, min_lr: float = 1e-5, goldstein_c: float = None) -> None:
+                 min_cosine: float = 0.01, min_lr: float = 1e-5, goldstein_c: float = None,
+                 weight_decay: float = None, normalize: str = None) -> None:
         # self.step_kwargs = set(inspect.getfullargspec(self.step).args)
         self.step_kwargs = {"model", "loss_func", "data_iterator", "loss_value"}
         super(ArmijoLineSearch, self).__init__(params, {})
@@ -47,6 +48,9 @@ class ArmijoLineSearch(ExtendedOptimizer):
         self.min_cosine = min_cosine
         self.total_steps = 0
         self.cosine_breaks = 0
+        self.use_weight_decay = (weight_decay is not None)
+        self.weight_decay = weight_decay
+        self.normalize = normalize
 
     # @profile
     def step(self, model: nn.Module, loss_func: Callable[[torch.Tensor, torch.Tensor], float],
@@ -57,6 +61,9 @@ class ArmijoLineSearch(ExtendedOptimizer):
             self.inner_optimizer.step()
             params_next = copy.deepcopy(self.inner_optimizer.param_groups)
             direction = self._get_direction(params_current, params_next)
+
+            if self.normalize:
+                self._normalize_direction(direction)
 
             if self.batch_strategy == 'single':
                 X, y = data_iterator.current()
@@ -69,6 +76,9 @@ class ArmijoLineSearch(ExtendedOptimizer):
                     self._backpropagate_gradients(loss_value)
             loss_value = self._reduce_average(loss_value)
             dot_product, cosine = self._gradient_vector_dot_product(self.param_groups, direction)
+            if self.use_weight_decay:
+                direction_dot_product, _ = self._gradient_vector_dot_product(
+                    direction, direction, is_first_grad=False)
             # logging.debug(f"Cosine: {cosine}")
             lr = self._reset_lr(self.state['lr'])
             self._mark_step()
@@ -77,7 +87,8 @@ class ArmijoLineSearch(ExtendedOptimizer):
             for i in range(self.max_iterations):
                 self._assign_new_params(params_current, direction, lr=lr)
                 new_loss_value = self._evaluate_model(model, loss_func, X, y)
-
+                if self.use_weight_decay:
+                    new_loss_value += self.weight_decay*lr*lr*direction_dot_product
                 if cosine < self.min_cosine:  # FIXME
                     self.cosine_breaks += 1
                     i = -1
@@ -112,9 +123,9 @@ class ArmijoLineSearch(ExtendedOptimizer):
                     lr = self.max_lr
                     break
                 self._mark_step()
-                # print(f"{i} {lr} {new_loss_value.item()} {loss_value.item()} " +
-                #       f"{(loss_value+self.c*lr*dot_product).item()} " +
-                #       f"{(loss_value + self.goldstein_c*lr*dot_product).item()}", flush=True)
+                # print(f"{i:03} {lr:.4} {new_loss_value.item():.4} {loss_value.item():.4} " +
+                #       f"{(loss_value+self.c*lr*dot_product).item():.4} " +
+                #       f"{(loss_value + self.goldstein_c*lr*dot_product).item():.4}", flush=True)
                 # tmp.append([lr, new_loss_value.item(), (loss_value+self.c*lr*dot_product).item(),
                 #            (loss_value + self.goldstein_c*lr*dot_product).item()])
                 # lr *= self.beta

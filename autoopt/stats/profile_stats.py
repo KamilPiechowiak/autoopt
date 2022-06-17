@@ -14,8 +14,8 @@ from autoopt.utils.file_utils import save_json
 class ProfileStats:
 
     def __init__(self, batch_sizes: List[int], num_workers: int, path: str,
-                 connector: BaseConnector, lr_min: float = 1e-5, lr_max: float = 1e-1,
-                 n_steps: int = 49, samples_limit: int = 10):
+                 connector: BaseConnector, lr_min: float = 1e-5, lr_max: float = 10,
+                 n_steps: int = 61, samples_limit: int = 2):
         self.batch_sizes = batch_sizes
         self.num_workers = num_workers
         self.path = path
@@ -59,47 +59,46 @@ class ProfileStats:
                 y_pred = model(x)
                 loss = loss_func(y_pred, y)
                 loss.backward()
-                self.connector.reduce_gradients(optimizer)
                 with torch.no_grad():
                     directions = [self.extract_negative_gradient(optimizer.param_groups)]
                     if optimizer.direction is not None:
                         directions.append(optimizer.direction)
                     for i, direction in enumerate(directions):
+                        print(batch_size, j, i, flush=True)
                         dot_product, cosine = optimizer._gradient_vector_dot_product(
                             optimizer.param_groups, direction)
                         real_losses = []
                         linear_approx = []
                         for lr in self.lrs:
                             optimizer._assign_new_params(params_current, direction, lr)
-                            new_loss_value = optimizer._evaluate_model(model, loss_func, x, y)
+                            new_loss_value = loss_func(model(x), y)
                             real_losses.append((new_loss_value).detach())
                             linear_approx.append((loss + lr*dot_product).detach())
-                            print(real_losses[-1].detach())
-                        self.connector.all_avg(real_losses)
-                        self.connector.all_avg(linear_approx)
+                            self.connector.step()
+                            # print(real_losses[-1].detach(), flush=True)
                         self.connector.step()
                         self.stats[f"{batch_size}_{self.possible_directions[i]}_real/{stage}"][-1] \
                             .append([x.item() for x in real_losses])
                         self.stats[f"{batch_size}_{self.possible_directions[i]}_approx/{stage}"][-1] \
                             .append([x.item() for x in linear_approx])
+                        self.connector.step()
                 optimizer.zero_grad()
                 if j+1 == self.samples_limit:
                     break
         with torch.no_grad():
             optimizer._assign_new_params(params_current, direction, 0)
-        if self.connector.is_master():
+
             self.stats['optimizer_step_directions'] = optimizer.history
             if is_training:
                 if self.previous_optimizer_direction is not None:
-                    with torch.no_grad():
-                        self.stats['optimizer_epoch_directions'].append(
-                            -optimizer._gradient_vector_dot_product(
-                                self.previous_optimizer_direction,
-                                optimizer.direction,
-                                is_first_grad=False
-                            )[1].item())
+                    self.stats['optimizer_epoch_directions'].append(
+                        -optimizer._gradient_vector_dot_product(
+                            self.previous_optimizer_direction,
+                            optimizer.direction,
+                            is_first_grad=False
+                        )[1].item())
                 self.previous_optimizer_direction = optimizer.direction
-            save_json(self.stats, f"{self.path}/profiles.json")
+            save_json(self.stats, f"{self.path}/profiles_{self.connector.get_rank()}.json")
 
     def extract_negative_gradient(self, params: List[Dict[str, List[torch.Tensor]]]) \
             -> List[Dict[str, List[torch.Tensor]]]:

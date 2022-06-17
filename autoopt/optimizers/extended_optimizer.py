@@ -33,6 +33,14 @@ class ExtendedOptimizer(optim.Optimizer):
             })
         return res
 
+    def _normalize_direction(self, direction: List[Dict[str, Any]]) -> None:
+        dot_product, _ = self._gradient_vector_dot_product(direction, direction,
+                                                           is_first_grad=False)
+        length = dot_product**0.5
+        for group_direction in direction:
+            for p in group_direction['params']:
+                p.data /= length
+
     def _gradient_vector_dot_product(self, gradient: List[Dict[str, List[torch.Tensor]]],
                                      vector: List[Dict[str, List[torch.Tensor]]],
                                      is_first_grad: bool = True) -> Tuple[float, float]:
@@ -58,6 +66,15 @@ class ExtendedOptimizer(optim.Optimizer):
             for p_model, p_current, p_direction in \
                     zip(group_model['params'], group_current['params'], group_direction['params']):
                 p_model.data = p_current + lr*p_direction
+
+    def _add_direction_to_vector(self, destination: List[Dict[str, Any]],
+                                 source: List[Dict[str, Any]], direction: List[Dict[str, Any]],
+                                 lr: float) -> None:
+        for group_dest, group_source, group_direction in \
+                zip(destination, source, direction):
+            for p_dest, p_source, p_direction in \
+                    zip(group_dest['params'], group_source['params'], group_direction['params']):
+                p_dest.data = p_source + lr*p_direction
 
     def _evaluate_model(self, model: nn.Module,
                         loss_func: Callable[[torch.Tensor, torch.Tensor], float],

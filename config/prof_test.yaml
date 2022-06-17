@@ -3,18 +3,29 @@ general:
     name: CIFAR10
     resolution: 224
     path: data
+    noaugment: True
   model:
     name: tf_efficientnet_b0
     num_classes: 10
   repeats: 1
   results_path: results
-  epochs: 100
-  batch_size: 128
+  epochs: 20
+  batch_size: 16
   num_workers: 4
   gcp: True
   tpu: True
   bucket_path: gs://kamil-piechowiak-weights-transfer/autoopt
+  stats:
+    profile:
+      batch_sizes: [16]
+      num_workers: 4
+    gradient_direction:
+      batch_sizes: [16]
+      num_workers: 4
 experiments:
   - optimizer:
-      name: SGD
-      lr: 0.1
+      name: OptimizerWrapper
+      inner_optimizer:
+        name: Adam
+        lr: 0.001
+    append_to_name: prof

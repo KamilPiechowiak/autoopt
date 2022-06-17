@@ -15,6 +15,10 @@ class BaseConnector(ABC):
         return
 
     @abstractmethod
+    def get_rank(self) -> int:
+        return
+
+    @abstractmethod
     def rendezvous(self, name) -> None:
         return
 

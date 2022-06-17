@@ -1,0 +1,103 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 32
+    path: data
+    noaugment: True
+  model:
+    name: SmallResnet20
+    num_classes: 10
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 50
+  batch_size: 128
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      alpha: 1
+      cumulative_loss_decay: 1
+      inner_optimizer:
+        lr: 1
+        name: SGD
+      learning_rates:
+        - 1
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+        - 1.0e-05
+      name: ExpertsNonLinearizedStationary
+  - optimizer:
+      alpha: 1
+      cumulative_loss_decay: 0.994
+      inner_optimizer:
+        lr: 1
+        name: SGD
+      learning_rates:
+        - 1
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+        - 1.0e-05
+      name: ExpertsNonLinearizedStationary
+  - optimizer:
+      alpha: 0.1
+      cumulative_loss_decay: 1
+      inner_optimizer:
+        lr: 1
+        name: SGD
+      learning_rates:
+        - 1
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+        - 1.0e-05
+      name: ExpertsNonLinearizedStationary
+  - optimizer:
+      alpha: 0.1
+      cumulative_loss_decay: 0.994
+      inner_optimizer:
+        lr: 1
+        name: SGD
+      learning_rates:
+        - 1
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+        - 1.0e-05
+      name: ExpertsNonLinearizedStationary
+  - optimizer:
+      alpha: 0.01
+      cumulative_loss_decay: 1
+      inner_optimizer:
+        lr: 1
+        name: SGD
+      learning_rates:
+        - 1
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+        - 1.0e-05
+      name: ExpertsNonLinearizedStationary
+  - optimizer:
+      alpha: 0.01
+      cumulative_loss_decay: 0.994
+      inner_optimizer:
+        lr: 1
+        name: SGD
+      learning_rates:
+        - 1
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+        - 1.0e-05
+      name: ExpertsNonLinearizedStationary

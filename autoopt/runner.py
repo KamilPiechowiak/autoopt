@@ -2,10 +2,18 @@ import argparse
 from typing import Dict
 import logging
 import copy
+import random
+import torch
+import numpy as np
 
 from autoopt.distributed.base_connector import BaseConnector
 from autoopt.utils import read_yaml
 from autoopt.training import train
+
+RANDOM_STATE = 13
+random.seed(RANDOM_STATE)
+torch.manual_seed(RANDOM_STATE)
+np.random.seed(RANDOM_STATE)
 
 
 def get_device_connector(config: Dict) -> BaseConnector:

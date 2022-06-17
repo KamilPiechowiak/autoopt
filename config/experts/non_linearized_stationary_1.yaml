@@ -1,0 +1,56 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 32
+    path: data
+    noaugment: True
+    wrap: 1
+  model:
+    name: SmallResnet20
+    num_classes: 10
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 50
+  batch_size: 128
+  num_workers: 0
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: Adam
+      lr: 0.01
+  - optimizer:
+      alpha: 0.1
+      cumulative_loss_decay: 0.994
+      inner_optimizer:
+        name: Adam
+      learning_rates:
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+      name: ExpertsNonLinearizedStationary
+  - optimizer:
+      alpha: 0.01
+      cumulative_loss_decay: 1
+      inner_optimizer:
+        name: Adam
+      learning_rates:
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+      name: ExpertsNonLinearizedStationary
+  - optimizer:
+      alpha: 0.01
+      cumulative_loss_decay: 0.994
+      inner_optimizer:
+        name: Adam
+      learning_rates:
+        - 0.1
+        - 0.01
+        - 0.001
+        - 0.0001
+      name: ExpertsNonLinearizedStationary

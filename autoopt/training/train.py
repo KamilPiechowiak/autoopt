@@ -1,13 +1,11 @@
 from datetime import datetime
 from typing import Callable, Dict
-from matplotlib.pyplot import connect
 import torch
 from torch import nn
-import logging
 import os
-import numpy as np
 
 from autoopt.data.datasets_factory import DatasetsFactory
+from autoopt.data.on_device_dataset_wrapper import OnDeviceDatasetWrapper
 from autoopt.distributed.base_connector import BaseConnector
 from autoopt.models.models_factory import ModelsFactory
 from autoopt.optimizers.optimizers_factory import OptimizersFactory
@@ -44,7 +42,7 @@ def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
                                          data_iterator=loader_iterator, loss_value=loss)
                 opt.zero_grad()
                 if connector.is_master() and stats is not None:
-                    keys = ['num_iterations', 'lr', 'cosine']
+                    keys = ['num_iterations', 'lr', 'cosine', 'prob']
                     for key in keys:
                         if key in opt.state:
                             stats.update({key: opt.state[key]}, is_training=True, dump=False)
@@ -97,6 +95,10 @@ def train(config: Dict, connector: BaseConnector) -> None:
     if connector.is_master():
         connector.rendezvous('download_only_once')
 
+    if config["dataset"].get("wrap"):
+        train_dataset = OnDeviceDatasetWrapper(train_dataset, device)
+        val_dataset = OnDeviceDatasetWrapper(val_dataset, device)
+
     model = ModelsFactory().get_model(config['model'])
     model.to(device)
     optimizer = OptimizersFactory().get_optimizer(config['optimizer'], model.parameters())
@@ -113,7 +115,7 @@ def train(config: Dict, connector: BaseConnector) -> None:
     if connector.is_master():
         stats_reporter = StatsReporter(metrics, path)
         stats_reporter.add_metrics(['num_iterations', 'lr', 'cosine', 'loss_detailed',
-                                    'acc_detailed', 'acc5_detailed'])
+                                    'acc_detailed', 'acc5_detailed', 'prob'])
     else:
         stats_reporter = None
 

@@ -2,6 +2,8 @@ from typing import Callable, List, Dict, Tuple
 
 import torch
 
+from autoopt.data.data_loader_transfer_wrapper import DataLoaderTransferWrapper
+
 from .base_connector import BaseConnector
 
 
@@ -15,6 +17,9 @@ class SimpleConnector(BaseConnector):
 
     def is_master(self) -> bool:
         return True
+
+    def get_rank(self) -> int:
+        return 0
 
     def rendezvous(self, name) -> None:
         pass
@@ -30,7 +35,7 @@ class SimpleConnector(BaseConnector):
         return train_sampler, val_sampler
 
     def wrap_data_loader(self, data_loader, device) -> torch.utils.data.DataLoader:
-        return data_loader
+        return DataLoaderTransferWrapper(data_loader, device)
 
     def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict):
         opt.step(**self._filter_optimizer_kwargs(opt, kwargs))

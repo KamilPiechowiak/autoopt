@@ -18,10 +18,13 @@ general:
     profile:
       batch_sizes: [4]
       num_workers: 2
+    gradient_direction:
+      batch_sizes: [16]
+      num_workers: 2
 experiments:
   - optimizer:
       name: OptimizerWrapper
       inner_optimizer:
         name: Adam
         lr: 0.001
-    append_to_name: prof
+    append_to_name: prof_grad

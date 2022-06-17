@@ -11,6 +11,8 @@ def stringify_config(config: Dict):
     for key in keys:
         if isinstance(config[key], Dict):
             res.extend(stringify_config(config[key]))
+        elif isinstance(config[key], list):
+            res.append(",".join([str(x) for x in config[key]]))
         else:
             res.append(config[key])
 

@@ -27,7 +27,7 @@ export PT_XLA_DEBUG=1
 
 python3 -m autoopt.runner config/lr_test.yaml
 python3 -m autoopt.runner config/lr.yaml
-nohup python3 -m autoopt.runner config/lr_resnet.yaml 2>&1 > log.log &
+nohup python3 -m autoopt.runner config/lr_resnet2.yaml 2>&1 > log.log &
 
 gcloud alpha compute tpus tpu-vm delete $TPU_INSTANCE_NAME --zone=$ZONE
 

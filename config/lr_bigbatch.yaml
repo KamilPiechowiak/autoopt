@@ -1,0 +1,98 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 32
+    path: data
+  model:
+    name: ResNet34
+    num_classes: 10
+  repeats: 1
+  results_path: results
+  epochs: 100
+  batch_size: 128
+  num_workers: 4
+  gcp: True
+  tpu: True
+  bucket_path: gs://kamil-piechowiak-weights-transfer/autoopt
+  append_to_name: big_batch
+experiments:
+  - optimizer:
+      name: SGD
+      lr: 1
+  - optimizer:
+      name: Adam
+      lr: 0.001
+  - optimizer:
+      name: DistributedArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: DistributedArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: Adam
+        lr: 1
+  - optimizer:
+      name: SGD
+      lr: 1
+    dataset:
+      name: CIFAR10
+      resolution: 224
+      path: data
+    model:
+      name: tf_efficientnet_b0
+      num_classes: 10
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    dataset:
+      name: CIFAR10
+      resolution: 224
+      path: data
+    model:
+      name: tf_efficientnet_b0
+      num_classes: 10
+  - optimizer:
+      name: DistributedArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: SGD
+        lr: 1
+    dataset:
+      name: CIFAR10
+      resolution: 224
+      path: data
+    model:
+      name: tf_efficientnet_b0
+      num_classes: 10
+  - optimizer:
+      name: DistributedArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: Adam
+        lr: 1
+    dataset:
+      name: CIFAR10
+      resolution: 224
+      path: data
+    model:
+      name: tf_efficientnet_b0
+      num_classes: 10

@@ -57,7 +57,8 @@ class GradientDirectionStats:
             avg_gradient_arr = [avg_gradient]
             self.connector.all_avg(avg_gradient_arr)
             avg_gradient = avg_gradient_arr[0]
-            print("Ensure all equal:", avg_gradient[:7], flush=True)
+            # print("Ensure all equal:", avg_gradient[:7], flush=True)
+            self.connector.step()
 
             cosines = []
             pairwise_cosines = []
@@ -83,7 +84,8 @@ class GradientDirectionStats:
             cosines = self.connector.all_gather(cosines)
             pairwise_cosines = self.connector.all_gather(pairwise_cosines)
             lengths = self.connector.all_gather(lengths)
-            self.connector.print(cosines, flush=True)
+            self.connector.print(cosines[:7], flush=True)
+            self.connector.step()
 
             self.stats[f"{batch_size}_cos_avg/{stage}"].append(cosines)
             self.stats[f"{batch_size}_cos_pairs/{stage}"].append(pairwise_cosines)
