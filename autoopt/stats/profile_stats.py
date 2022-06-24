@@ -23,7 +23,7 @@ class ProfileStats:
         self.samples_limit = samples_limit
         self.lrs = np.exp(np.linspace(np.log(lr_min), np.log(lr_max), n_steps))
         self.stats = {}
-        self.possible_directions = ["gradient", "optimizer"]
+        self.possible_directions = ["gradient", "optimizer", "random"]
         for batch_size in self.batch_sizes:
             for stage in ["train", "val"]:
                 for direction in self.possible_directions:
@@ -34,8 +34,7 @@ class ProfileStats:
         self.stats['optimizer_epoch_directions'] = []
 
     def analyse_profiles(self, optimizer: OptimizerWrapper, model: nn.Module, loss_func: Callable,
-                         dataset: VisionDataset, sampler: torch.utils.data.Sampler, seed: int,
-                         is_training: bool = True):
+                         dataset: VisionDataset, is_training: bool = True):
         if is_training:
             stage = "train"
         else:
@@ -43,30 +42,34 @@ class ProfileStats:
         optimizer.zero_grad()
         params_current = copy.deepcopy(optimizer.param_groups)
         for batch_size in self.batch_sizes:
+            generator = torch.Generator(device='cpu')
+            generator.manual_seed(2147483647)
             loader = torch.utils.data.DataLoader(
                 dataset,
                 batch_size=batch_size,
-                sampler=sampler,
+                sampler=torch.utils.data.RandomSampler(dataset, generator=generator),
                 num_workers=self.num_workers,
                 drop_last=True)
             loader = self.connector.wrap_data_loader(loader, self.connector.get_device())
-            if hasattr(sampler, "set_epoch"):
-                sampler.set_epoch(seed)
             for possible_direction in self.possible_directions:
                 self.stats[f"{batch_size}_{possible_direction}_real/{stage}"].append([])
                 self.stats[f"{batch_size}_{possible_direction}_approx/{stage}"].append([])
             for j, (x, y) in enumerate(loader):
+                print(y[::8])
                 y_pred = model(x)
                 loss = loss_func(y_pred, y)
                 loss.backward()
+                optimizer.step(simulate=True)
                 with torch.no_grad():
                     directions = [self.extract_negative_gradient(optimizer.param_groups)]
                     if optimizer.direction is not None:
                         directions.append(optimizer.direction)
+                    directions.append(self.get_random_vector(optimizer.param_groups))
                     for i, direction in enumerate(directions):
                         print(batch_size, j, i, flush=True)
                         dot_product, cosine = optimizer._gradient_vector_dot_product(
                             optimizer.param_groups, direction)
+                        print(dot_product, cosine)
                         real_losses = []
                         linear_approx = []
                         for lr in self.lrs:
@@ -82,6 +85,7 @@ class ProfileStats:
                         self.stats[f"{batch_size}_{self.possible_directions[i]}_approx/{stage}"][-1] \
                             .append([x.item() for x in linear_approx])
                         self.connector.step()
+                    optimizer._assign_new_params(params_current, direction, 0)
                 optimizer.zero_grad()
                 if j+1 == self.samples_limit:
                     break
@@ -106,7 +110,19 @@ class ProfileStats:
         for group in params:
             group_res = []
             for p in group['params']:
-                group_res.append(-p)
+                group_res.append(-p.grad)
+            res.append({
+                'params': group_res
+            })
+        return res
+
+    def get_random_vector(self, params: List[Dict[str, List[torch.Tensor]]]) \
+            -> List[Dict[str, List[torch.Tensor]]]:
+        res = []
+        for group in params:
+            group_res = []
+            for p in group['params']:
+                group_res.append(torch.rand_like(p))
             res.append({
                 'params': group_res
             })

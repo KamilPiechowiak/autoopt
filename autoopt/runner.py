@@ -7,6 +7,7 @@ import torch
 import numpy as np
 
 from autoopt.distributed.base_connector import BaseConnector
+from autoopt.training.validate import validate_experts
 from autoopt.utils import read_yaml
 from autoopt.training import train
 
@@ -38,7 +39,10 @@ def run_experiments(rank: int, config: Dict, connector: BaseConnector, log: str)
         }
         repeats_start = experiment_config.get("repeats_start", 0)
         for repeat in range(repeats_start, repeats_start + experiment_config["repeats"]):
-            train({**copy.deepcopy(experiment_config), "repeat": repeat}, connector)
+            f = train
+            if config['general'].get('independent_experts'):
+                f = validate_experts
+            f({**copy.deepcopy(experiment_config), "repeat": repeat}, connector)
 
 
 def run(args: Dict):

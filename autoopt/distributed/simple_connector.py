@@ -29,9 +29,14 @@ class SimpleConnector(BaseConnector):
         train_sampler = torch.utils.data.RandomSampler(
             train_dataset
         )
-        val_sampler = torch.utils.data.SequentialSampler(
-            val_dataset
-        )
+        if shuffle_val:
+            val_sampler = torch.utils.data.RandomSampler(
+                val_dataset
+            )
+        else:
+            val_sampler = torch.utils.data.SequentialSampler(
+                val_dataset
+            )
         return train_sampler, val_sampler
 
     def wrap_data_loader(self, data_loader, device) -> torch.utils.data.DataLoader:

@@ -3,7 +3,7 @@ general:
     name: CIFAR10
     resolution: 32
     path: data
-    noaugment: True
+    noaugment: False
   model:
     name: ResNet34
     num_classes: 10

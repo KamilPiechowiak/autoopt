@@ -5,25 +5,29 @@ general:
     path: data
     noaugment: True
   model:
-    name: ResNet34
+    name: SmallResnet20
     num_classes: 10
+    seed: 13
   repeats: 1
+  repeats_start: 1
   results_path: results
-  epochs: 20
+  epochs: 50
   batch_size: 128
   num_workers: 2
   gcp: True
   tpu: False
   bucket_path: gs://autoopt
-  stats:
-    profile:
-      batch_sizes: [32, 64, 128, 256]
-      num_workers: 2
-      samples_limit: 10
+  checkpoint: True
 experiments:
   - optimizer:
-      name: OptimizerWrapper
-      inner_optimizer:
-        name: Adam
-        lr: 0.001
-    append_to_name: prof
+      name: Adam
+      lr: 0.1
+  - optimizer:
+      name: Adam
+      lr: 0.01
+  - optimizer:
+      name: Adam
+      lr: 0.001
+  - optimizer:
+      name: Adam
+      lr: 0.0001

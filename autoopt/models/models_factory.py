@@ -1,3 +1,4 @@
+import random
 from typing import Dict
 
 import sys
@@ -5,6 +6,8 @@ import inspect
 from torch import nn
 import copy
 import timm
+import torch
+import numpy as np
 from .sls import *
 from .small import *
 
@@ -19,6 +22,11 @@ class ModelsFactory:
         config = copy.deepcopy(config)
         name = config["name"]
         del config["name"]
+        if config.get("seed"):
+            random.seed(config["seed"])
+            torch.manual_seed(config["seed"])
+            np.random.seed(config["seed"])
+            del config["seed"]
         if name in self.available_models.keys():
             return self.available_models[name](**config)
         return timm.create_model(name, **config)

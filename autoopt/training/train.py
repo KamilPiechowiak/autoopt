@@ -1,4 +1,5 @@
 from datetime import datetime
+import sched
 from typing import Callable, Dict
 import torch
 from torch import nn
@@ -10,6 +11,7 @@ from autoopt.distributed.base_connector import BaseConnector
 from autoopt.models.models_factory import ModelsFactory
 from autoopt.optimizers.optimizers_factory import OptimizersFactory
 from autoopt.metrics.stats_reporter import StatsReporter
+from autoopt.optimizers.schedulers_factory import SchedulersFactory
 from autoopt.stats.profile_stats import ProfileStats
 from autoopt.utils.memorizing_iterator import MemorizingIterator
 from autoopt.utils.path_utils import get_path
@@ -19,10 +21,13 @@ from autoopt.stats.gradient_direction_stats import GradientDirectionStats
 def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
                   model: nn.Module, loader: torch.utils.data.DataLoader, loss_func: Callable,
                   opt: torch.optim.Optimizer = None, stats: StatsReporter = None,
-                  metrics: Dict = {}, gradeBy: str = 'bce', grad_acc: int = 1):
+                  metrics: Dict = {}, gradeBy: str = 'bce', grad_acc: int = 1,
+                  is_training_set: bool = None):
     start_time = datetime.now()
     assert gradeBy in metrics.keys()
     is_training = (opt is not None)
+    if is_training_set is None:
+        is_training_set = is_training
     metric_values = {}
     for metric in metrics.keys():
         metric_values[metric] = []
@@ -42,7 +47,7 @@ def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
                                          data_iterator=loader_iterator, loss_value=loss)
                 opt.zero_grad()
                 if connector.is_master() and stats is not None:
-                    keys = ['num_iterations', 'lr', 'cosine', 'prob']
+                    keys = ['num_iterations', 'lr', 'cosine', 'prob', 'beta1', 'beta2', 'eps', 'weight_decay']
                     for key in keys:
                         if key in opt.state:
                             stats.update({key: opt.state[key]}, is_training=True, dump=False)
@@ -70,7 +75,7 @@ def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
             stats.update({
                 metric: metric_values[metric].mean().item(),
                 f"{metric}_detailed": metric_values[metric].cpu().numpy()
-            }, is_training=is_training)
+            }, is_training=is_training_set)
 
     end_time = datetime.now()
     connector.print(end_time - start_time, flush=True)
@@ -102,6 +107,10 @@ def train(config: Dict, connector: BaseConnector) -> None:
     model = ModelsFactory().get_model(config['model'])
     model.to(device)
     optimizer = OptimizersFactory().get_optimizer(config['optimizer'], model.parameters())
+    if config.get('scheduler'):
+        scheduler = SchedulersFactory().get_scheduler(config['scheduler'], optimizer)
+    else:
+        scheduler = None
 
     loss_func = nn.CrossEntropyLoss()
     metrics = {
@@ -115,7 +124,8 @@ def train(config: Dict, connector: BaseConnector) -> None:
     if connector.is_master():
         stats_reporter = StatsReporter(metrics, path)
         stats_reporter.add_metrics(['num_iterations', 'lr', 'cosine', 'loss_detailed',
-                                    'acc_detailed', 'acc5_detailed', 'prob'])
+                                    'acc_detailed', 'acc5_detailed', 'prob',
+                                    'beta1', 'beta2', 'eps', 'weight_decay'])
     else:
         stats_reporter = None
 
@@ -132,7 +142,9 @@ def train(config: Dict, connector: BaseConnector) -> None:
         profile_stats = None
 
     train_sampler, val_sampler = connector.get_samplers(
-        train_dataset, val_dataset, gradient_direction_stats is not None)
+        train_dataset, val_dataset,
+        (gradient_direction_stats is not None) or (profile_stats is not None)
+    )
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -158,9 +170,9 @@ def train(config: Dict, connector: BaseConnector) -> None:
                                                        val_sampler, 0, False)
         if profile_stats is not None:
             profile_stats.analyse_profiles(optimizer, model, loss_func, train_dataset,
-                                           train_sampler, 0, True)
+                                           True)
             profile_stats.analyse_profiles(optimizer, model, loss_func, val_dataset,
-                                           val_sampler, 0, False)
+                                           False)
 
         if hasattr(train_sampler, "set_epoch"):
             train_sampler.set_epoch(epoch + config['repeat'] * 2137)
@@ -180,11 +192,16 @@ def train(config: Dict, connector: BaseConnector) -> None:
                 if config.get("checkpoint", False):
                     _save_model(connector, model, optimizer, f'{path}/best.pt')
 
-        if config.get("checkpoint", False) is True:
-            _save_model(connector, model, optimizer, f'{path}/current.pt')
+        if config.get("checkpoint", False):
+            _save_model(connector, model, optimizer, f'{path}/{epoch}.pt')
             # if epoch % config['persist_state_every'] == config['persist_state_every'] - 1 and \
             #         connector.is_master() and os.path.exists(f'{path}/best.pt'):
             #     shutil.copy(f'{path}/best.pt', f'{path}/{epoch}_checkpoint.pt')
+
+        if scheduler is not None:
+            stats_reporter.update({'lr': optimizer.param_groups[0]['lr']},
+                                  is_training=True, dump=False)
+            scheduler.step()
 
     if connector.is_master() and config.get('gcp', True):
         os.system(f'gsutil cp -r {path} {config["bucket_path"]}')

@@ -26,6 +26,8 @@ def get_path(config: Dict) -> str:
         'noaugment' if config['dataset'].get('noaugment', False) else 'augment',
         *stringify_config(config['optimizer']),
     ]
+    if config.get('scheduler'):
+        data.extend(stringify_config(config['scheduler']))
     if 'append_to_name' in config:
         data.append(config['append_to_name'])
     data.append(config['repeat'])
