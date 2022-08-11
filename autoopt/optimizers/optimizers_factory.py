@@ -9,6 +9,7 @@ from autoopt.optimizers.armijo_line_search import ArmijoLineSearch
 from autoopt.optimizers.distributed_armijo_line_search import DistributedArmijoLineSearch
 from autoopt.optimizers.optimizer_wrapper import OptimizerWrapper
 from autoopt.optimizers.experts import *
+from autoopt.optimizers.pal_optimizer import PalOptimizer
 
 
 class OptimizersFactory:

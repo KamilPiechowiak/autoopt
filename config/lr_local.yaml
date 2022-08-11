@@ -3,34 +3,19 @@ general:
     name: CIFAR10
     resolution: 32
     path: data
+    noaugment: False
+    test: True
   model:
     name: SmallResnet20
     num_classes: 10
   repeats: 1
+  repeats_start: 0
   results_path: tmp
-  epochs: 40
-  batch_size: 32
+  epochs: 10
+  batch_size: 16
   num_workers: 1
   gcp: False
   tpu: False
 experiments:
   - optimizer:
-      name: ExpertsAdam
-      inner_optimizer:
-        name: Adam
-      num_experts: 100
-      alpha: 0.1
-      cumulative_loss_decay: 0.994
-      ranges:
-        lr:
-          - 1.e-4
-          - 1.e-1
-        beta1:
-          - 1.e-3
-          - 1
-        beta2:
-          - 1.e-4
-          - 1
-        eps:
-          - 1.e-9
-          - 1.e-5
+      name: PalOptimizer

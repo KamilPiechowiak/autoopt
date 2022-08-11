@@ -1,21 +1,21 @@
 general:
-  dataset:
-    name: CIFAR10
-    resolution: 32
-    path: data
-    noaugment: True
   model:
     name: ResNet34
     num_classes: 10
   repeats: 1
-  repeats_start: 3
   results_path: results
-  epochs: 50
+  epochs: 100
   batch_size: 128
   num_workers: 2
   gcp: True
   tpu: False
   bucket_path: gs://autoopt
+  stats:
+    profile:
+      batch_sizes: [32, 64, 128, 256]
+      num_workers: 2
+      samples_limit: 10
+      epochs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 29, 39, 49, 59, 69, 79, 89, 99]
 experiments:
   - optimizer:
       name: ArmijoLineSearch
@@ -27,7 +27,12 @@ experiments:
       inner_optimizer:
         name: Adam
         lr: 1
-      normalize: normalize
+    dataset:
+      name: CIFAR10
+      resolution: 32
+      path: data
+      noaugment: False
+    append_to_name: prof_many
   - optimizer:
       name: ArmijoLineSearch
       reset_strategy: increase
@@ -38,5 +43,9 @@ experiments:
       inner_optimizer:
         name: Adam
         lr: 1
-      weight_decay: 0.1
-      normalize: normalize
+    dataset:
+      name: CIFAR10
+      resolution: 32
+      path: data
+      noaugment: True
+    append_to_name: prof_many

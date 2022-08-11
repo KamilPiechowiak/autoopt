@@ -15,7 +15,7 @@ class ProfileStats:
 
     def __init__(self, batch_sizes: List[int], num_workers: int, path: str,
                  connector: BaseConnector, lr_min: float = 1e-5, lr_max: float = 10,
-                 n_steps: int = 61, samples_limit: int = 2):
+                 n_steps: int = 61, samples_limit: int = 2, epochs: int = None):
         self.batch_sizes = batch_sizes
         self.num_workers = num_workers
         self.path = path
@@ -27,7 +27,7 @@ class ProfileStats:
         for batch_size in self.batch_sizes:
             for stage in ["train", "val"]:
                 for direction in self.possible_directions:
-                    for x in ["real", "approx"]:
+                    for x in ["real", "approx", "length"]:
                         self.stats[f"{batch_size}_{direction}_{x}/{stage}"] = []
 
         self.previous_optimizer_direction = None
@@ -54,6 +54,7 @@ class ProfileStats:
             for possible_direction in self.possible_directions:
                 self.stats[f"{batch_size}_{possible_direction}_real/{stage}"].append([])
                 self.stats[f"{batch_size}_{possible_direction}_approx/{stage}"].append([])
+                self.stats[f"{batch_size}_{possible_direction}_length/{stage}"].append([])
             for j, (x, y) in enumerate(loader):
                 print(y[::8])
                 y_pred = model(x)
@@ -85,6 +86,12 @@ class ProfileStats:
                         self.stats[f"{batch_size}_{self.possible_directions[i]}_approx/{stage}"][-1] \
                             .append([x.item() for x in linear_approx])
                         self.connector.step()
+
+                        dot_product, cosine = optimizer._gradient_vector_dot_product(
+                            direction, direction, is_first_grad=False)
+                        self.stats[f"{batch_size}_{self.possible_directions[i]}_length/{stage}"][-1] \
+                            .append((dot_product**0.5).cpu().item())
+                        
                     optimizer._assign_new_params(params_current, direction, 0)
                 optimizer.zero_grad()
                 if j+1 == self.samples_limit:

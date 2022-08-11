@@ -7,7 +7,7 @@ general:
   model:
     name: ResNet34
     num_classes: 10
-  repeats: 2
+  repeats: 1
   repeats_start: 0
   results_path: results
   epochs: 50
@@ -21,45 +21,29 @@ experiments:
       name: ArmijoLineSearch
       reset_strategy: increase
       search_strategy: armijo
-      batch_strategy: single
-      gamma: 1.001
-      c: 0.1
-      inner_optimizer:
-        name: Adagrad
-        lr: 1
-      normalize: normalize
-  - optimizer:
-      name: ArmijoLineSearch
-      reset_strategy: increase
-      search_strategy: armijo
-      batch_strategy: single
-      gamma: 1.001
-      c: 0.1
-      inner_optimizer:
-        name: Adagrad
-        lr: 1
-      weight_decay: 0.1
-      normalize: normalize
-  - optimizer:
-      name: ArmijoLineSearch
-      reset_strategy: increase
-      search_strategy: armijo
-      batch_strategy: single
+      batch_strategy: double
       gamma: 1.001
       c: 0.1
       inner_optimizer:
         name: SGD
         lr: 1
-      normalize: normalize
   - optimizer:
       name: ArmijoLineSearch
       reset_strategy: increase
       search_strategy: armijo
-      batch_strategy: single
+      batch_strategy: double
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: double
       gamma: 1.001
       c: 0.1
       inner_optimizer:
-        name: SGD
+        name: Adagrad
         lr: 1
-      weight_decay: 0.1
-      normalize: normalize

@@ -56,8 +56,13 @@ class OptimizerWrapper(ExtendedOptimizer):
                 if data[i] is None:
                     if isinstance(self.inner_optimizer.state[p][key], int):
                         self.inner_optimizer.state[p][key] = 0
+                    elif len(self.inner_optimizer.state[p][key].shape) == 0:
+                        self.inner_optimizer.state[p][key] = torch.zeros((1,), dtype=torch.float,
+                                                                         device=p.device)
                     else:
                         self.inner_optimizer.state[p][key][:] = 0
                 else:
+                    # if len(self.inner_optimizer.state[p][key].shape) == 0:
+                    #     print(self.inner_optimizer.state[p][key], data[i])
                     self.inner_optimizer.state[p][key] = data[i]
                 i += 1

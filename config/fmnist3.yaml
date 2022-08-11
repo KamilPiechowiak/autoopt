@@ -1,0 +1,263 @@
+general:
+  dataset:
+    name: FASHION_MNIST
+    resolution: 28
+    path: data
+    noaugment: True
+  model:
+    name: SmallResnet20
+    num_classes: 10
+  repeats: 3
+  repeats_start: 0
+  results_path: results
+  epochs: 50
+  batch_size: 128
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: Adam
+      lr: 0.0001
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: Adam
+      lr: 0.01
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    repeats: 2
+    repeats_start: 1
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.0001
+  - optimizer:
+      name: Adam
+      lr: 0.01
+    repeats: 3
+    repeats_start: 0
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.001
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    scheduler:
+      name: OneCycleLR
+      max_lr: 0.01
+      total_steps: 50
+      three_phase: 1
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      weight_decay: 1
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      weight_decay: 0.1
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      weight_decay: 0.01
+    repeats: 3
+    repeats_start: 0
+  - optimizer:
+      name: Adagrad
+      lr: 0.001
+  - optimizer:
+      name: Adagrad
+      lr: 0.01
+  - optimizer:
+      name: Adagrad
+      lr: 0.1
+  - optimizer:
+      name: Adagrad
+      lr: 0.01
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.001
+  - optimizer:
+      name: Adagrad
+      lr: 0.1
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.01
+  - optimizer:
+      name: Adagrad
+      lr: 0.01
+    scheduler:
+      name: OneCycleLR
+      max_lr: 0.1
+      total_steps: 50
+      three_phase: 1
+      cycle_momentum: False
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.01
+      c: 0.1
+      inner_optimizer:
+        name: Adagrad
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.01
+      c: 0.1
+      inner_optimizer:
+        name: Adagrad
+        lr: 1
+      weight_decay: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.01
+      c: 0.1
+      inner_optimizer:
+        name: Adagrad
+        lr: 1
+      weight_decay: 0.1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.01
+      c: 0.1
+      inner_optimizer:
+        name: Adagrad
+        lr: 1
+      weight_decay: 0.01
+  - optimizer:
+      name: SGD
+      lr: 0.01
+  - optimizer:
+      name: SGD
+      lr: 0.1
+  - optimizer:
+      name: SGD
+      lr: 1
+  - optimizer:
+      name: SGD
+      lr: 0.1
+    scheduler:
+      name: OneCycleLR
+      max_lr: 1
+      total_steps: 50
+      three_phase: 1
+      cycle_momentum: False
+  - optimizer:
+      name: SGD
+      lr: 0.1
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.01
+  - optimizer:
+      name: SGD
+      lr: 1
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: SGD
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: SGD
+        lr: 1
+      weight_decay: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: SGD
+        lr: 1
+      weight_decay: 0.1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.1
+      inner_optimizer:
+        name: SGD
+        lr: 1
+      weight_decay: 0.01

@@ -10,6 +10,7 @@ import torch
 import numpy as np
 from .sls import *
 from .small import *
+from .lstm import *
 
 
 class ModelsFactory:

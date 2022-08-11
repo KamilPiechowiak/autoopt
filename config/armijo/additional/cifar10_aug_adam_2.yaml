@@ -3,12 +3,12 @@ general:
     name: CIFAR10
     resolution: 32
     path: data
-    noaugment: True
+    noaugment: False
   model:
     name: ResNet34
     num_classes: 10
   repeats: 1
-  repeats_start: 3
+  repeats_start: 0
   results_path: results
   epochs: 50
   batch_size: 128
@@ -27,16 +27,4 @@ experiments:
       inner_optimizer:
         name: Adam
         lr: 1
-      normalize: normalize
-  - optimizer:
-      name: ArmijoLineSearch
-      reset_strategy: increase
-      search_strategy: armijo
-      batch_strategy: single
-      gamma: 1.001
-      c: 0.5
-      inner_optimizer:
-        name: Adam
-        lr: 1
-      weight_decay: 0.1
-      normalize: normalize
+      weight_decay: 0.01

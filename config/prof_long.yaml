@@ -1,0 +1,41 @@
+general:
+  model:
+    name: ResNet34
+    num_classes: 10
+  repeats: 1
+  results_path: results
+  epochs: 100
+  batch_size: 128
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+  stats:
+    profile:
+      batch_sizes: [32, 64, 128, 256]
+      num_workers: 2
+      samples_limit: 10
+      epochs: [29, 39, 49, 59, 69, 79, 89, 99]
+experiments:
+  - optimizer:
+      name: OptimizerWrapper
+      inner_optimizer:
+        name: Adam
+        lr: 0.001
+    dataset:
+      name: CIFAR10
+      resolution: 32
+      path: data
+      noaugment: False
+    append_to_name: prof_long
+  - optimizer:
+      name: OptimizerWrapper
+      inner_optimizer:
+        name: Adam
+        lr: 0.001
+    dataset:
+      name: CIFAR10
+      resolution: 32
+      path: data
+      noaugment: True
+    append_to_name: prof_long

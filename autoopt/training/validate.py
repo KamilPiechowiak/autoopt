@@ -86,11 +86,11 @@ def validate_experts(config: Dict, connector: BaseConnector) -> None:
                 _single_epoch(epoch, device, connector, model,
                               connector.wrap_data_loader(train_loader, device), loss_func,
                               stats=stats_reporter, metrics=metrics, gradeBy='loss',
-                              is_training_set=True)
+                              training_phase='train')
                 _single_epoch(epoch, device, connector, model,
                               connector.wrap_data_loader(val_loader, device), loss_func,
                               stats=stats_reporter, metrics=metrics, gradeBy='loss',
-                              is_training_set=False)
+                              training_phase='val')
 
     if connector.is_master() and config.get('gcp', True):
         os.system(f'gsutil cp -r {path} {config["bucket_path"]}')

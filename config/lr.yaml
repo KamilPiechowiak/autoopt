@@ -168,7 +168,7 @@ experiments:
       reset_strategy: keep
       search_strategy: goldstein
       batch_strategy: double
-      inner_optimizer:
+      mizer:
         name: Adagrad
   - optimizer:
       name: DistributedArmijoLineSearch

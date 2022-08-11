@@ -1,0 +1,78 @@
+general:
+  dataset:
+    name: Tolstoi
+    resolution: 50
+    path: data
+  model:
+    name: LSTMLanguageModel
+    vocab_size: 82
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 200
+  batch_size: 50
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: Adam
+      lr: 0.001
+  - optimizer:
+      name: Adam
+      lr: 0.01
+  - optimizer:
+      name: Adam
+      lr: 0.0001
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    scheduler:
+      name: OneCycleLR
+      max_lr: 0.01
+      total_steps: 50
+      three_phase: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      weight_decay: 0.1
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.0001
+      lr_max: 0.1
+      num_experts: 100
+      is_stationary: 0
+      alpha: 0.1
+      cumulative_loss_decay: 0.994
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.0001
+      lr_max: 0.1
+      num_experts: 100
+      is_stationary: 1
+      alpha: 0.1
+      cumulative_loss_decay: 0.994

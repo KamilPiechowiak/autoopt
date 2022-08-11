@@ -1,0 +1,25 @@
+general:
+  dataset:
+    name: Tolstoi
+    resolution: 50
+    path: data
+  model:
+    name: LSTMLanguageModel
+    vocab_size: 82
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 200
+  batch_size: 50
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.0001

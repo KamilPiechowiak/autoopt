@@ -63,26 +63,37 @@ class ExpertsAdam(ExtendedOptimizer):
                 if hyperparameter in ['beta1', 'beta2']:  # distribution on 1-\beta rather than \beta
                     hyperparams[hyperparameter] = 1 - hyperparams[hyperparameter]
                 for p_opt, p_prev in zip(group_opt['params'], group_prev['params']):
-                    bias_correction1 = 1 - hyperparams['beta1'] ** p_prev['step']
-                    bias_correction2 = 1 - hyperparams['beta2'] ** p_prev['step']
-                    prev_grad = p_prev['grad'] + p_prev['param']*hyperparams['weight_decay']
-                    numerator = hyperparams['beta1'] * p_prev['exp_avg'] \
-                        + (1-hyperparams['beta1']) * prev_grad
-                    denominator = hyperparams['beta2'] * p_prev['exp_avg_sq'] \
-                        + (1-hyperparams['beta2']) * prev_grad**2
-                    denominator /= bias_correction2
-                    denominator = denominator.sqrt() + hyperparams['eps']
-                    direction = hyperparams['lr'] * numerator / bias_correction1 / denominator
-                    # print(direction.shape)
-                    # print(direction[:10])
-                    losses_update = torch.sum(direction * p_opt.grad.flatten(), dim=-1)
+                    losses_update = self._get_losses(p_opt, p_prev, hyperparams)
                     self.cumulative_losses[hyperparameter] -= losses_update
-        
+
         # if hasattr(self, 'direction'):
         #     print(self._gradient_vector_dot_product(self.direction, computed_direction, is_first_grad=False))
         #     print(self._gradient_vector_dot_product(self.direction, self.direction, is_first_grad=False))
         #     print(self._gradient_vector_dot_product(computed_direction, computed_direction, is_first_grad=False))
 
+        expected_hyperparameters = self._get_expected_hyperparamters()
+        self._update_state(expected_hyperparameters)
+
+        self.inner_optimizer.step()
+
+    def _get_losses(self, p_opt: torch.Tensor, p_prev: Dict[str, torch.Tensor],
+                    hyperparams: Dict[str, torch.Tensor]) -> None:
+        bias_correction1 = 1 - hyperparams['beta1'] ** p_prev['step']
+        bias_correction2 = 1 - hyperparams['beta2'] ** p_prev['step']
+        prev_grad = p_prev['grad'] + p_prev['param']*hyperparams['weight_decay']
+        numerator = hyperparams['beta1'] * p_prev['exp_avg'] \
+            + (1-hyperparams['beta1']) * prev_grad
+        denominator = hyperparams['beta2'] * p_prev['exp_avg_sq'] \
+            + (1-hyperparams['beta2']) * prev_grad**2
+        denominator /= bias_correction2
+        denominator = denominator.sqrt() + hyperparams['eps']
+        direction = hyperparams['lr'] * numerator / bias_correction1 / denominator
+        # print(direction.shape)
+        # print(direction[:10])
+        losses_update = torch.sum(direction * p_opt.grad.flatten(), dim=-1)
+        return losses_update
+
+    def _get_expected_hyperparamters(self) -> Dict[str, float]:
         expected_hyperparameters = {}
         for hyperparameter in self.probabilities.keys():
             probabilities = torch.exp(-self.alpha * (
@@ -94,18 +105,20 @@ class ExpertsAdam(ExtendedOptimizer):
             expected_hyperparameters[hyperparameter] = torch.sum(
                 probabilities*self.ranges[hyperparameter]).cpu().item()
             # print(self.cumulative_losses)
-            print(hyperparameter, expected_hyperparameters[hyperparameter])
+            # print(hyperparameter, expected_hyperparameters[hyperparameter])
             self.state[hyperparameter] = expected_hyperparameters[hyperparameter]
+        return expected_hyperparameters
 
+    def _update_state(self, expected_hyperparameters: Dict[str, float]) -> None:
         self.previous_stats = []
         for group in self.inner_optimizer.param_groups:
-            if 'lr' in self.probabilities.keys():
+            if 'lr' in self.ranges.keys():
                 group['lr'] = expected_hyperparameters['lr']
-            if 'beta1' in self.probabilities.keys() and 'beta2' in self.probabilities.keys():
+            if 'beta1' in self.ranges.keys() and 'beta2' in self.ranges.keys():
                 group['betas'] = (expected_hyperparameters['beta1'], expected_hyperparameters['beta2'])
-            if 'eps' in self.probabilities.keys():
+            if 'eps' in self.ranges.keys():
                 group['eps'] = expected_hyperparameters['eps']
-            if 'weight_decay' in self.probabilities.keys():
+            if 'weight_decay' in self.ranges.keys():
                 group['weight_decay'] = expected_hyperparameters['weight_decay']
             previous_stats = {
                 'params': []
@@ -126,8 +139,3 @@ class ExpertsAdam(ExtendedOptimizer):
                     'exp_avg_sq': copy.deepcopy(state['exp_avg_sq']).flatten()
                 })
             self.previous_stats.append(previous_stats)
-
-        # params_current = copy.deepcopy(self.param_groups)
-        self.inner_optimizer.step()
-        # params_next = copy.deepcopy(self.inner_optimizer.param_groups)
-        # self.direction = self._get_direction(params_current, params_next)

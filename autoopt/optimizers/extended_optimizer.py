@@ -40,6 +40,7 @@ class ExtendedOptimizer(optim.Optimizer):
         for group_direction in direction:
             for p in group_direction['params']:
                 p.data /= length
+        self.state['direction_length'] = length.cpu().item()
 
     def _gradient_vector_dot_product(self, gradient: List[Dict[str, List[torch.Tensor]]],
                                      vector: List[Dict[str, List[torch.Tensor]]],

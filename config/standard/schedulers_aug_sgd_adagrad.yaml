@@ -1,0 +1,122 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 32
+    path: data
+    noaugment: False
+  model:
+    name: ResNet34
+    num_classes: 10
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 50
+  batch_size: 128
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: Adagrad
+      lr: 0.001
+  - optimizer:
+      name: Adagrad
+      lr: 0.0001
+  - optimizer:
+      name: Adagrad
+      lr: 0.01
+    scheduler:
+      name: OneCycleLR
+      max_lr: 0.1
+      total_steps: 50
+      three_phase: 1
+      cycle_momentum: False
+  - optimizer:
+      name: Adagrad
+      lr: 0.01
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.001
+  - optimizer:
+      name: Adagrad
+      lr: 0.1
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.01
+  - optimizer:
+      name: Adagrad
+      lr: 0.1
+    scheduler:
+      name: StepLR
+      step_size: 17
+      gamma: 0.1
+  - optimizer:
+      name: SGD
+      lr: 0.1
+    scheduler:
+      name: OneCycleLR
+      max_lr: 1
+      total_steps: 50
+      three_phase: 1
+      cycle_momentum: False
+  - optimizer:
+      name: SGD
+      lr: 0.1
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.01
+  - optimizer:
+      name: SGD
+      lr: 1
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.1
+  - optimizer:
+      name: SGD
+      lr: 1
+    scheduler:
+      name: StepLR
+      step_size: 17
+      gamma: 0.1
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    scheduler:
+      name: OneCycleLR
+      max_lr: 0.01
+      total_steps: 50
+      three_phase: 1
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.0001
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: Adam
+      lr: 0.01
+    scheduler:
+      name: CosineAnnealingLR
+      T_max: 50
+      eta_min: 0.001
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: Adam
+      lr: 0.01
+    scheduler:
+      name: StepLR
+      step_size: 17
+      gamma: 0.1
+    repeats: 2
+    repeats_start: 1

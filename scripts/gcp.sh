@@ -29,6 +29,7 @@ python3 -m autoopt.runner config/lr_test.yaml
 python3 -m autoopt.runner config/lr.yaml
 nohup python3 -m autoopt.runner config/lr_resnet2.yaml 2>&1 > log.log &
 
+
 gcloud alpha compute tpus tpu-vm delete $TPU_INSTANCE_NAME --zone=$ZONE
 
 gcloud alpha compute tpus tpu-vm scp --recurse --scp-flag="--exclude='*.pt'" $TPU_INSTANCE_NAME:results results --zone=$ZONE

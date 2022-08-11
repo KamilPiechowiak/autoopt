@@ -1,0 +1,49 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 32
+    path: data
+    noaugment: True
+  model:
+    name: ResNet34
+    num_classes: 10
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 50
+  batch_size: 128
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: Adam
+      lr: 0.01
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: Adam
+      lr: 0.001
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: Adam
+      lr: 0.0001
+    repeats: 2
+    repeats_start: 1
+  - optimizer:
+      name: SGD
+      lr: 0.01
+  - optimizer:
+      name: Adagrad
+      lr: 0.1
+  - optimizer:
+      name: Adagrad
+      lr: 0.01
+  - optimizer:
+      name: Adagrad
+      lr: 0.001
+  - optimizer:
+      name: Adagrad
+      lr: 0.0001

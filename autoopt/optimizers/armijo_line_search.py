@@ -2,6 +2,7 @@ from decimal import ExtendedContext
 from typing import Any, Callable, Dict, List
 import inspect
 import logging
+import numpy as np
 
 import torch
 from torch import optim, nn
@@ -20,7 +21,9 @@ class ArmijoLineSearch(ExtendedOptimizer):
                  reset_strategy: str = 'keep', search_strategy: str = 'armijo',
                  batch_strategy: str = 'single', gamma: float = 2.0, max_iterations: int = 100,
                  min_cosine: float = 0.01, min_lr: float = 1e-5, goldstein_c: float = None,
-                 weight_decay: float = None, normalize: str = None) -> None:
+                 weight_decay: float = None, normalize: str = None,
+                 report_critical_profiles: bool = False, random_profile_prob: float = 0.0,
+                 lr_multiplier: float = 1.0) -> None:
         # self.step_kwargs = set(inspect.getfullargspec(self.step).args)
         self.step_kwargs = {"model", "loss_func", "data_iterator", "loss_value"}
         super(ArmijoLineSearch, self).__init__(params, {})
@@ -51,6 +54,9 @@ class ArmijoLineSearch(ExtendedOptimizer):
         self.use_weight_decay = (weight_decay is not None)
         self.weight_decay = weight_decay
         self.normalize = normalize
+        self.report_critical_profiles = report_critical_profiles
+        self.random_profile_prob = random_profile_prob
+        self.lr_multiplier = lr_multiplier
 
     # @profile
     def step(self, model: nn.Module, loss_func: Callable[[torch.Tensor, torch.Tensor], float],
@@ -67,11 +73,13 @@ class ArmijoLineSearch(ExtendedOptimizer):
 
             if self.batch_strategy == 'single':
                 X, y = data_iterator.current()
+                y = y.flatten()
             else:
                 self._assign_new_params(params_current, direction, lr=0)
                 self.zero_grad()
                 with torch.enable_grad():
                     X, y = next(data_iterator)
+                    y = y.flatten()
                     loss_value = self._evaluate_model(model, loss_func, X, y, average=False)
                     self._backpropagate_gradients(loss_value)
             loss_value = self._reduce_average(loss_value)
@@ -92,7 +100,7 @@ class ArmijoLineSearch(ExtendedOptimizer):
                 if cosine < self.min_cosine:  # FIXME
                     self.cosine_breaks += 1
                     i = -1
-                    # logging.debug(f"Cosine too small. Break {self.cosine_breaks/self.total_steps}")
+                    # logging.debug(f"Cosine too small.Break {self.cosine_breaks/self.total_steps}")
                     break
                 upper_bound_condition = (
                     new_loss_value <= loss_value + self.c*lr*dot_product
@@ -129,9 +137,31 @@ class ArmijoLineSearch(ExtendedOptimizer):
                 # tmp.append([lr, new_loss_value.item(), (loss_value+self.c*lr*dot_product).item(),
                 #            (loss_value + self.goldstein_c*lr*dot_product).item()])
                 # lr *= self.beta
+            final_lr = lr
             self.state['num_iterations'] = i
             self.state['lr'] = lr
             self.state['cosine'] = cosine.cpu().item()
+            if (i > 0 or np.random.rand() < self.random_profile_prob) \
+                    and self.report_critical_profiles:
+                if i > 0:
+                    self.state['profile_type'] = 1
+                else:
+                    self.state['profile_type'] = 2
+                print("Profile", i, self.state['profile_type'])
+                self.state['profile'] = []
+                lrs = np.exp(np.linspace(np.log(self.min_lr), np.log(self.max_lr), 71))
+                for lr in lrs:
+                    self._assign_new_params(params_current, direction, lr=lr)
+                    new_loss_value = self._evaluate_model(model, loss_func, X, y)
+                    self.state['profile'].append(
+                        (new_loss_value.cpu().item(),
+                            (loss_value + self.c*lr*dot_product).cpu().item()))
+                self._assign_new_params(params_current, direction, lr=final_lr)
+            elif 'profile' in self.state:
+                self.state['profile_type'] = 0
+                del self.state['profile']
+            else:
+                self.state['profile_type'] = 0
             # import numpy as np
             # import matplotlib.pyplot as plt
             # tmp = np.array(tmp)
@@ -141,6 +171,8 @@ class ArmijoLineSearch(ExtendedOptimizer):
             # plt.scatter(tmp[:,0], tmp[:,3])
             # plt.show()
             # exit(0)
+            if self.lr_multiplier > 1.01:
+                self._assign_new_params(params_current, direction, lr=self.lr_multiplier*final_lr)
 
     def _reset_lr(self, lr: float) -> float:
         if self.reset_strategy == 'max':
