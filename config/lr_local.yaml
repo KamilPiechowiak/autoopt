@@ -1,7 +1,7 @@
 general:
   dataset:
-    name: CIFAR10
-    resolution: 32
+    name: FASHION_MNIST
+    resolution: 28
     path: data
     noaugment: False
     test: True
@@ -19,3 +19,14 @@ general:
 experiments:
   - optimizer:
       name: PalOptimizer
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      weight_decay: 0.01

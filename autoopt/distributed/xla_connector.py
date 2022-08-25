@@ -1,4 +1,4 @@
-from typing import Callable, List, Dict, Tuple
+from typing import Any, Callable, List, Dict, Tuple
 
 import torch
 import torch_xla.core.xla_model as xm
@@ -41,8 +41,9 @@ class XlaConnector(BaseConnector):
     def wrap_data_loader(self, data_loader, device) -> torch.utils.data.DataLoader:
         return pl.ParallelLoader(data_loader, [device]).per_device_loader(device)
 
-    def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict):
-        xm.optimizer_step(opt, optimizer_args=self._filter_optimizer_kwargs(opt, kwargs))
+    def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict) \
+            -> Tuple[torch.Tensor, Any]:
+        return xm.optimizer_step(opt, optimizer_args=self._filter_optimizer_kwargs(opt, kwargs))
 
     def reduce_gradients(self, opt: torch.optim.Optimizer) -> None:
         xm.reduce_gradients(opt)

@@ -1,8 +1,13 @@
+import contextlib
+import time
 from typing import Any, Callable, Dict, List, Tuple
 
-from typing import List
+import numpy as np
 import torch
 from torch import optim, nn
+
+from autoopt.losses.generic_loss_creator import GenericLossCreator
+from autoopt.utils.memorizing_iterator import MemorizingIterator
 
 
 class ExtendedOptimizer(optim.Optimizer):
@@ -77,12 +82,15 @@ class ExtendedOptimizer(optim.Optimizer):
                     zip(group_dest['params'], group_source['params'], group_direction['params']):
                 p_dest.data = p_source + lr*p_direction
 
-    def _evaluate_model(self, model: nn.Module,
-                        loss_func: Callable[[torch.Tensor, torch.Tensor], float],
-                        X: torch.Tensor, y: torch.Tensor, average: bool = True) -> torch.Tensor:
-        y_predicted = model(X)
-        loss = loss_func(y_predicted, y)
-        return loss
+    def _update_loss_function(self, model: nn.Module, loss_creator: GenericLossCreator,
+                              data_iterator: MemorizingIterator) -> None:
+        X, y = data_iterator.current()
+        self.loss_func = loss_creator.get_loss_function_on_minibatch(model, X, y)
+        self.seed = time.time()
+
+    def _evaluate_model(self, backward: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
+        with self.random_seed_torch(int(self.seed)):
+            return self.loss_func(backward)
 
     def _backpropagate_gradients(self, loss: torch.Tensor) -> None:
         loss.backward()
@@ -92,3 +100,36 @@ class ExtendedOptimizer(optim.Optimizer):
 
     def _mark_step(self) -> None:
         pass
+
+    @contextlib.contextmanager
+    def random_seed_torch(self, seed):
+        """
+        source: https://github.com/IssamLaradji/sls/
+        """
+        cpu_rng_state = torch.get_rng_state()
+        if torch.cuda.is_available():
+            gpu_rng_state = torch.cuda.get_rng_state(0)
+
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+        try:
+            yield
+        finally:
+            torch.set_rng_state(cpu_rng_state)
+            if torch.cuda.is_available():
+                torch.cuda.set_rng_state(gpu_rng_state)
+
+    def _set_batchnorms_momentum(self, model, batchnorm_momentum):
+        if isinstance(model, nn.BatchNorm2d):
+            model.momentum = batchnorm_momentum
+        else:
+            for child in model.children():
+                self._set_batchnorms_momentum(child, batchnorm_momentum)
+
+    def _turn_off_batchnorms_accumulation(self, model):
+        self._set_batchnorms_momentum(model, 0.0)
+
+    def _turn_on_batchnorms_accumulation(self, model):
+        self._set_batchnorms_momentum(model, 0.1)

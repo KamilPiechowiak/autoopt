@@ -1,5 +1,6 @@
 from datetime import datetime
 import sched
+from turtle import backward
 from typing import Callable, Dict
 import torch
 from torch import nn
@@ -8,6 +9,8 @@ import os
 from autoopt.data.datasets_factory import DatasetsFactory
 from autoopt.data.on_device_dataset_wrapper import OnDeviceDatasetWrapper
 from autoopt.distributed.base_connector import BaseConnector
+from autoopt.losses.generic_loss_creator import GenericLossCreator
+from autoopt.losses.loss_creators_factory import LossCreatorsFactory
 from autoopt.models.models_factory import ModelsFactory
 from autoopt.optimizers.optimizer_wrapper import OptimizerWrapper
 from autoopt.optimizers.optimizers_factory import OptimizersFactory
@@ -18,12 +21,15 @@ from autoopt.utils.memorizing_iterator import MemorizingIterator
 from autoopt.utils.path_utils import get_path
 from autoopt.stats.gradient_direction_stats import GradientDirectionStats
 
+STOP_FAST = False
+
 
 def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
-                  model: nn.Module, loader: torch.utils.data.DataLoader, loss_func: Callable,
+                  model: nn.Module, loader: torch.utils.data.DataLoader,
+                  loss_creator: GenericLossCreator,
                   opt: torch.optim.Optimizer = None, stats: StatsReporter = None,
                   metrics: Dict = {}, gradeBy: str = 'bce',
-                  training_phase: str = None, clip_gradients: float = None):
+                  training_phase: str = None):
     start_time = datetime.now()
     assert gradeBy in metrics.keys()
     is_training = (opt is not None)
@@ -42,17 +48,16 @@ def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
 
     for i, (x, y) in enumerate(loader_iterator):
         y = y.flatten()
-        y_pred = model(x)
-        loss = loss_func(y_pred, y)
 
-        for metric, f in metrics.items():
-            metric_values[metric].append(f(y_pred, y).detach())
         if is_training:
-            loss.backward()
-            if clip_gradients:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), clip_gradients)
-            connector.optimizer_step(opt, model=model, loss_func=loss_func,
-                                     data_iterator=loader_iterator, loss_value=loss)
+            if hasattr(opt, "step_kwargs"):
+                loss, y_pred = connector.optimizer_step(
+                    opt, model=model, loss_creator=loss_creator,
+                    data_iterator=loader_iterator)
+            else:
+                loss, y_pred = loss_creator.get_loss_function_on_minibatch(
+                    model, x, y)(backward=True)
+                connector.optimizer_step(opt)
             opt.zero_grad()
             if connector.is_master() and stats is not None:
                 keys = ['num_iterations', 'lr', 'cosine', 'prob', 'beta1', 'beta2', 'eps',
@@ -60,8 +65,15 @@ def _single_epoch(epoch: int, device: torch.device, connector: BaseConnector,
                 for key in keys:
                     if key in opt.state:
                         stats.update({key: opt.state[key]}, training_phase, dump=False)
-        # if i == 10:
-        #     break  # FIXME
+        else:
+            loss, y_pred = loss_creator.get_loss_function_on_minibatch(
+                model, x, y)(backward=False)
+
+        for metric, f in metrics.items():
+            metric_values[metric].append(f(y_pred, y, loss).detach())
+
+        if STOP_FAST and i == 10:
+            break
 
     metric_keys = list(metric_values.keys())
     arr = []
@@ -96,6 +108,10 @@ def _save_model(connector: BaseConnector, model: nn.Module,
 
 
 def train(config: Dict, connector: BaseConnector) -> None:
+    if config.get('local', False):
+        global STOP_FAST
+        STOP_FAST = True
+
     path = get_path(config)
     device = connector.get_device()
 
@@ -125,15 +141,23 @@ def train(config: Dict, connector: BaseConnector) -> None:
     else:
         scheduler = None
 
-    loss_func = nn.CrossEntropyLoss()
-    metrics = {
-        'loss': loss_func,
-        'acc': lambda input, target:
-            (torch.max(input, 1)[1] == target).sum() / float(target.shape[0]),
-        'acc5': lambda input, target:
-            (torch.sort(input, 1, descending=True)[1][:, :5] == target.unsqueeze(-1)).sum() /
-            float(target.shape[0]),
-    }
+    loss_creator = LossCreatorsFactory().get_loss_creator(config.get('task', 'classification'))
+    if config.get('task', 'classification') == 'classification':
+        loss_func = nn.CrossEntropyLoss()
+        metrics = {
+            'loss': lambda input, target, loss: loss,
+            'acc': lambda input, target, loss:
+                (torch.max(input, 1)[1] == target).sum() / float(target.shape[0]),
+            'acc5': lambda input, target, loss:
+                (torch.sort(input, 1, descending=True)[1][:, :5] == target.unsqueeze(-1)).sum() /
+                float(target.shape[0]),
+        }
+        grade_by = 'acc'
+    else:
+        metrics = {
+            'loss': lambda input, target, loss: loss
+        }
+        grade_by = 'loss'
     if connector.is_master():
         stats_reporter = StatsReporter(metrics, path)
         stats_reporter.add_metrics(['num_iterations', 'lr', 'cosine', 'loss_detailed',
@@ -173,7 +197,7 @@ def train(config: Dict, connector: BaseConnector) -> None:
         num_workers=config['num_workers'],
         drop_last=True)
 
-    best_acc = 0.0
+    best_acc = -1000000.0
     for epoch in range(config['epochs']):
         connector.print(f'EPOCH: {epoch}')
         model.train()
@@ -193,16 +217,18 @@ def train(config: Dict, connector: BaseConnector) -> None:
         if hasattr(train_sampler, "set_epoch"):
             train_sampler.set_epoch(epoch + config['repeat'] * 2137)
         _single_epoch(epoch, device, connector, model,
-                      connector.wrap_data_loader(train_loader, device), loss_func, optimizer,
-                      stats=stats_reporter, metrics=metrics, gradeBy='acc',
-                      clip_gradients=config.get('clip_gradients'))
+                      connector.wrap_data_loader(train_loader, device), loss_creator, optimizer,
+                      stats=stats_reporter, metrics=metrics, gradeBy=grade_by)
 
         with torch.no_grad():
             model.eval()
             acc = _single_epoch(epoch, device, connector, model,
-                                connector.wrap_data_loader(val_loader, device), loss_func,
-                                stats=stats_reporter, metrics=metrics, gradeBy='acc')
+                                connector.wrap_data_loader(val_loader, device), loss_creator,
+                                stats=stats_reporter, metrics=metrics, gradeBy=grade_by)
+            if grade_by != 'acc':
+                acc *= -1
             if acc > best_acc:
+                print(f"Saving {acc} > {best_acc}")
                 best_acc = acc
                 _save_model(connector, model, optimizer, 'best.pt')
 
@@ -230,8 +256,8 @@ def train(config: Dict, connector: BaseConnector) -> None:
         with torch.no_grad():
             model.eval()
             _single_epoch(epoch, device, connector, model,
-                          connector.wrap_data_loader(test_loader, device), loss_func,
-                          stats=stats_reporter, metrics=metrics, gradeBy='acc',
+                          connector.wrap_data_loader(test_loader, device), loss_creator,
+                          stats=stats_reporter, metrics=metrics, gradeBy=grade_by,
                           training_phase='test')
 
     if connector.is_master() and config.get('gcp', True):

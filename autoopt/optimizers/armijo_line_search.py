@@ -1,5 +1,6 @@
+import contextlib
 from decimal import ExtendedContext
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 import inspect
 import logging
 import numpy as np
@@ -8,6 +9,7 @@ import torch
 from torch import optim, nn
 import copy
 import time
+from autoopt.losses.generic_loss_creator import GenericLossCreator
 from autoopt.optimizers.extended_optimizer import ExtendedOptimizer
 
 from autoopt.utils.memorizing_iterator import MemorizingIterator
@@ -25,7 +27,7 @@ class ArmijoLineSearch(ExtendedOptimizer):
                  report_critical_profiles: bool = False, random_profile_prob: float = 0.0,
                  lr_multiplier: float = 1.0) -> None:
         # self.step_kwargs = set(inspect.getfullargspec(self.step).args)
-        self.step_kwargs = {"model", "loss_func", "data_iterator", "loss_value"}
+        self.step_kwargs = {"model", "loss_creator", "data_iterator"}
         super(ArmijoLineSearch, self).__init__(params, {})
         assert reset_strategy in ['max', 'keep', 'increase']
         assert search_strategy in ['armijo', 'goldstein']
@@ -59,8 +61,12 @@ class ArmijoLineSearch(ExtendedOptimizer):
         self.lr_multiplier = lr_multiplier
 
     # @profile
-    def step(self, model: nn.Module, loss_func: Callable[[torch.Tensor, torch.Tensor], float],
-             data_iterator: MemorizingIterator, loss_value: torch.Tensor) -> None:
+    def step(self, model: nn.Module, loss_creator: GenericLossCreator,
+             data_iterator: MemorizingIterator) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        self._update_loss_function(model, loss_creator, data_iterator)
+        loss_value, y_pred = self._evaluate_model(backward=True)
+
         with torch.no_grad():
             self.total_steps += 1
             params_current = copy.deepcopy(self.param_groups)
@@ -71,17 +77,13 @@ class ArmijoLineSearch(ExtendedOptimizer):
             if self.normalize:
                 self._normalize_direction(direction)
 
-            if self.batch_strategy == 'single':
-                X, y = data_iterator.current()
-                y = y.flatten()
-            else:
+            if self.batch_strategy == 'double':
                 self._assign_new_params(params_current, direction, lr=0)
                 self.zero_grad()
                 with torch.enable_grad():
-                    X, y = next(data_iterator)
-                    y = y.flatten()
-                    loss_value = self._evaluate_model(model, loss_func, X, y, average=False)
-                    self._backpropagate_gradients(loss_value)
+                    _, _ = next(data_iterator)
+                    self._update_loss_function(model, loss_creator, data_iterator)
+                    loss_value = self._evaluate_model(backward=True)[0]
             loss_value = self._reduce_average(loss_value)
             dot_product, cosine = self._gradient_vector_dot_product(self.param_groups, direction)
             if self.use_weight_decay:
@@ -94,7 +96,7 @@ class ArmijoLineSearch(ExtendedOptimizer):
             # lr = self.max_lr  # FIXME
             for i in range(self.max_iterations):
                 self._assign_new_params(params_current, direction, lr=lr)
-                new_loss_value = self._evaluate_model(model, loss_func, X, y)
+                new_loss_value = self._evaluate_model(backward=False)[0]
                 if self.use_weight_decay:
                     new_loss_value += self.weight_decay*lr*lr*direction_dot_product
                 if cosine < self.min_cosine:  # FIXME
@@ -152,7 +154,7 @@ class ArmijoLineSearch(ExtendedOptimizer):
                 lrs = np.exp(np.linspace(np.log(self.min_lr), np.log(self.max_lr), 71))
                 for lr in lrs:
                     self._assign_new_params(params_current, direction, lr=lr)
-                    new_loss_value = self._evaluate_model(model, loss_func, X, y)
+                    new_loss_value = self._evaluate_model(backward=False)[0]
                     self.state['profile'].append(
                         (new_loss_value.cpu().item(),
                             (loss_value + self.c*lr*dot_product).cpu().item()))
@@ -173,6 +175,7 @@ class ArmijoLineSearch(ExtendedOptimizer):
             # exit(0)
             if self.lr_multiplier > 1.01:
                 self._assign_new_params(params_current, direction, lr=self.lr_multiplier*final_lr)
+        return loss_value, y_pred
 
     def _reset_lr(self, lr: float) -> float:
         if self.reset_strategy == 'max':

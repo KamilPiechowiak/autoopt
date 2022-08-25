@@ -11,6 +11,7 @@ import numpy as np
 from .sls import *
 from .small import *
 from .lstm import *
+from .vae import *
 
 
 class ModelsFactory:

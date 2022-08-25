@@ -76,6 +76,8 @@ class DatasetsFactory:
             dataset_train = TransformDataset(dataset_train, preprocess_train)
             dataset_val = TransformDataset(dataset_val, preprocess_val)
             print(len(dataset_train), len(dataset_val), len(dataset_test))
+            print([dataset_train[i][1] for i in range(10)])
+            print([dataset_val[i][1] for i in range(10)])
             return dataset_train, dataset_val, dataset_test
         else:
             dataset_train = prepare_dataset(config['name'], config['path'], True, preprocess_train)

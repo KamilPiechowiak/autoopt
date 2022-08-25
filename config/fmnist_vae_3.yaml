@@ -1,0 +1,38 @@
+general:
+  dataset:
+    name: FASHION_MNIST
+    resolution: 28
+    path: data
+    noaugment: False
+    test: True
+  task: vae
+  model:
+    name: VAE
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 50
+  batch_size: 64
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: Adagrad
+      lr: 0.001
+    scheduler:
+      name: OneCycleLR
+      max_lr: 0.01
+      total_steps: 50
+      three_phase: 1
+      cycle_momentum: False
+  - optimizer:
+      name: SGD
+      lr: 0.01
+    scheduler:
+      name: OneCycleLR
+      max_lr: 0.1
+      total_steps: 50
+      three_phase: 1
+      cycle_momentum: False

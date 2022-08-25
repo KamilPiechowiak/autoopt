@@ -1,8 +1,9 @@
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 import torch
 from torch import optim, nn
 import copy
+from autoopt.losses.generic_loss_creator import GenericLossCreator
 from autoopt.optimizers.extended_optimizer import ExtendedOptimizer
 from autoopt.utils.memorizing_iterator import MemorizingIterator
 
@@ -13,7 +14,7 @@ class ExpertsNonLinearizedStationary(ExtendedOptimizer):
                  alpha: float, learning_rates: List[float], cumulative_loss_decay: float = 1,
                  expecation_on_logarithms: bool = False) -> None:
         super(ExpertsNonLinearizedStationary, self).__init__(params, {})
-        self.step_kwargs = {"model", "loss_func", "data_iterator", "loss_value"}
+        self.step_kwargs = {"model", "loss_creator", "data_iterator"}
         self.inner_optimizer = inner_optimizer
         self.alpha = alpha
         device = self.param_groups[0]['params'][0].device
@@ -27,8 +28,15 @@ class ExpertsNonLinearizedStationary(ExtendedOptimizer):
         self.expecation_on_logarithms = expecation_on_logarithms
 
     @torch.no_grad()
-    def step(self, model: nn.Module, loss_func: Callable[[torch.Tensor, torch.Tensor], float],
-             data_iterator: MemorizingIterator, loss_value: torch.Tensor) -> None:
+    def step(self, model: nn.Module, loss_creator: GenericLossCreator,
+             data_iterator: MemorizingIterator) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        with torch.enable_grad():
+            self._update_loss_function(model, loss_creator, data_iterator)
+            loss_value, y_pred = self._evaluate_model(backward=True)
+
+        self._turn_off_batchnorms_accumulation(model)
+
         self.total_steps += 1
         params_current = copy.deepcopy(self.param_groups)
         self.inner_optimizer.step()
@@ -40,7 +48,7 @@ class ExpertsNonLinearizedStationary(ExtendedOptimizer):
             for i, lr in enumerate(self.learning_rates):
                 self._assign_new_params(self.previous_params, self.previous_direction, lr=lr)
                 self.cumulative_losses[i] = self.cumulative_loss_decay * self.cumulative_losses[i]
-                self.cumulative_losses[i] += self._evaluate_model(model, loss_func, X, y)
+                self.cumulative_losses[i] += self._evaluate_model(backward=False)[0]
 
         probabilities = self.probabilities * \
             torch.exp(-self.alpha * (self.cumulative_losses-self.cumulative_losses.min()))
@@ -56,4 +64,7 @@ class ExpertsNonLinearizedStationary(ExtendedOptimizer):
         self.previous_params = params_current
         self.previous_direction = direction
 
+        self._turn_on_batchnorms_accumulation(model)
+
+        return loss_value, y_pred
         # print(self.cumulative_losses/self.total_steps, probabilities, expected_lr)

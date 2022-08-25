@@ -33,8 +33,8 @@ pip3 install 'git+https://github.com/fsschneider/DeepOBS.git@v1.2.0-beta0#egg=De
 python3 -m autoopt.runner config/lr_test.yaml
 python3 -m autoopt.runner config/lr.yaml
 # change random seed
-nohup python3 -m autoopt.runner config/cifar100.yaml 2>&1 > log.log &
-nohup python3 -m autoopt.runner config/armijo/additional/cifar10_sgd_hyp.yaml 2>&1 > log.log &
+nohup python3 -m autoopt.runner config/experts/linearized_augment_ill.yaml 2>&1 > log2.log &
+nohup python3 -m autoopt.runner config/experts/linearized_augment_2.yaml 2>&1 > log.log &
 
 nohup scripts/batch_armijo.sh > log.log &
 nohup scripts/batch_standard.sh > log.log &

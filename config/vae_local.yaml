@@ -1,0 +1,34 @@
+general:
+  local: True
+  dataset:
+    name: FASHION_MNIST
+    resolution: 28
+    path: data
+    noaugment: False
+    test: True
+  task: vae
+  model:
+    name: VAE
+  repeats: 1
+  repeats_start: 0
+  results_path: tmp
+  epochs: 10
+  batch_size: 8
+  num_workers: 1
+  gcp: False
+  tpu: False
+experiments:
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      weight_decay: 0.01
+  - optimizer:
+      name: Adam
+      lr: 0.001

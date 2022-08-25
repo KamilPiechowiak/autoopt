@@ -1,4 +1,4 @@
-from typing import Callable, List, Dict, Tuple
+from typing import Any, Callable, List, Dict, Tuple
 
 import torch
 
@@ -42,8 +42,9 @@ class SimpleConnector(BaseConnector):
     def wrap_data_loader(self, data_loader, device) -> torch.utils.data.DataLoader:
         return DataLoaderTransferWrapper(data_loader, device)
 
-    def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict):
-        opt.step(**self._filter_optimizer_kwargs(opt, kwargs))
+    def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict) \
+            -> Tuple[torch.Tensor, Any]:
+        return opt.step(**self._filter_optimizer_kwargs(opt, kwargs))
 
     def reduce_gradients(self, opt: torch.optim.Optimizer) -> None:
         return

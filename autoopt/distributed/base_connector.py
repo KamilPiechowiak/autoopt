@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Callable, List, Dict, Tuple
+from typing import Any, Callable, List, Dict, Tuple
 import inspect
 import torch
 
@@ -32,7 +32,8 @@ class BaseConnector(ABC):
         return
 
     @abstractmethod
-    def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict):
+    def optimizer_step(self, opt: torch.optim.Optimizer, **kwargs: Dict) \
+            -> Tuple[torch.Tensor, Any]:
         return
 
     @abstractmethod

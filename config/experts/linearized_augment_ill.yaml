@@ -1,0 +1,152 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 32
+    path: data
+    noaugment: False
+    wrap: 1
+  model:
+    name: SmallResnet20
+    num_classes: 10
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 50
+  batch_size: 128
+  num_workers: 0
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 0
+      alpha: 1
+      cumulative_loss_decay: 1
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 0
+      alpha: 1
+      cumulative_loss_decay: 0.994
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 0
+      alpha: 0.1
+      cumulative_loss_decay: 1
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 0
+      alpha: 0.1
+      cumulative_loss_decay: 0.994
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 1
+      alpha: 1
+      cumulative_loss_decay: 1
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 1
+      alpha: 1
+      cumulative_loss_decay: 0.994
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 1
+      alpha: 0.1
+      cumulative_loss_decay: 1
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 1
+      alpha: 0.1
+      cumulative_loss_decay: 0.994
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 0
+      alpha: 0.01
+      cumulative_loss_decay: 1
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 0
+      alpha: 0.01
+      cumulative_loss_decay: 0.994
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 1
+      alpha: 0.01
+      cumulative_loss_decay: 1
+  - optimizer:
+      name: ExpertsLinearized
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      lr_min: 0.1
+      lr_max: 10
+      num_experts: 100
+      is_stationary: 1
+      alpha: 0.01
+      cumulative_loss_decay: 0.994

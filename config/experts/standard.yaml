@@ -1,0 +1,50 @@
+general:
+  dataset:
+    name: CIFAR10
+    resolution: 32
+    path: data
+    noaugment: False
+    wrap: 1
+  model:
+    name: SmallResnet20
+    num_classes: 10
+  repeats: 2
+  repeats_start: 1
+  results_path: results
+  epochs: 50
+  batch_size: 128
+  num_workers: 0
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+experiments:
+  - optimizer:
+      name: SGD
+      lr: 1
+  - optimizer:
+      name: SGD
+      lr: 0.1
+  - optimizer:
+      name: SGD
+      lr: 0.01
+  - optimizer:
+      name: SGD
+      lr: 0.001
+  - optimizer:
+      name: SGD
+      lr: 0.0001
+  - optimizer:
+      name: Adam
+      lr: 1
+  - optimizer:
+      name: Adam
+      lr: 0.1
+  - optimizer:
+      name: Adam
+      lr: 0.01
+  - optimizer:
+      name: Adam
+      lr: 0.001
+  - optimizer:
+      name: Adam
+      lr: 0.0001

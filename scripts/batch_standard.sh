@@ -1,4 +1,5 @@
 #!/bin/bash
 
-python3 -m autoopt.runner config/standard/schedulers_sgd_adagrad.yaml
-python3 -m autoopt.runner config/standard/schedulers_aug_sgd_adagrad.yaml
+python3 -m autoopt.runner config/experts/non_linearized_resnet34.yaml
+python3 -m autoopt.runner config/experts/linearized_resnet34_3.yaml
+python3 -m autoopt.runner config/experts/non_linearized_resnet34_2.yaml

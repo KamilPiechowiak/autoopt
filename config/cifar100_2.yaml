@@ -1,0 +1,44 @@
+general:
+  dataset:
+    name: CIFAR100
+    resolution: 32
+    path: data
+    noaugment: False
+    test: True
+  model:
+    name: ResNet34
+    num_classes: 100
+  repeats: 1
+  repeats_start: 0
+  results_path: results
+  epochs: 150
+  batch_size: 128
+  num_workers: 2
+  gcp: True
+  tpu: False
+  bucket_path: gs://autoopt
+  append_to_name: test
+experiments:
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      normalize: normalize
+      inner_optimizer:
+        name: Adam
+        lr: 1
+      weight_decay: 0.01
+  - optimizer:
+      name: ArmijoLineSearch
+      reset_strategy: increase
+      search_strategy: armijo
+      batch_strategy: single
+      gamma: 1.001
+      c: 0.5
+      normalize: normalize
+      inner_optimizer:
+        name: Adam
+        lr: 1

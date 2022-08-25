@@ -11,6 +11,9 @@ import torch
 from torch.optim.optimizer import Optimizer
 import contextlib
 
+from autoopt.losses.generic_loss_creator import GenericLossCreator
+from autoopt.utils.memorizing_iterator import MemorizingIterator
+
 
 class _RequiredParameter(object):
     """Singleton class representing a required parameter for an Optimizer."""
@@ -43,6 +46,8 @@ class PalOptimizer(Optimizer):
         :param plot_step_interval: training_step % plot_step_interval == 0 -> plot the line the approximation is done over
         :param save_dir: line plot save location
         """
+
+        self.step_kwargs = {"model", "loss_creator", "data_iterator"}
 
         if is_plot == True and not os.path.exists(save_dir):
             os.makedirs(save_dir)
@@ -132,7 +137,8 @@ class PalOptimizer(Optimizer):
                     else:
                         p.data.add_(step * -p.grad.data / direction_norm)
 
-    def step(self, loss_fn):
+    def step(self, model: torch.nn.Module, loss_creator: GenericLossCreator,
+             data_iterator: MemorizingIterator):
         """
         Performs a PAL optimization step,
         calls the loss_fn twice
@@ -150,6 +156,7 @@ class PalOptimizer(Optimizer):
                         the loss has to be backpropagated when backward is set to True
         :return: outputs of the first loss_fn call and the estimated step size
         """
+        loss_fn = loss_creator.get_loss_function_on_minibatch(model, *data_iterator.current())
         seed = time.time()
 
         def loss_fn_deterministic(backward=True):
@@ -224,7 +231,9 @@ class PalOptimizer(Optimizer):
 
                 self._perform_param_update_step(params, s_upd, direction_norm)
 
-                return loss_0, returns ,((s_upd+measuring_step)/direction_norm).item()
+                self.state['lr'] = ((s_upd+measuring_step)/direction_norm).item()
+
+                return loss_0, returns
 
     def plot_loss_line_and_approximation(self, resolution, a_min, mu, direction_norm, loss_fn, a, b, loss_0, loss_mu,
                                          params,
@@ -315,7 +324,8 @@ class PalOptimizer(Optimizer):
         source: https://github.com/IssamLaradji/sls/
         """
         cpu_rng_state = torch.get_rng_state()
-        gpu_rng_state = torch.cuda.get_rng_state(0)
+        if torch.cuda.is_available():
+            gpu_rng_state = torch.cuda.get_rng_state(0)
 
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -325,4 +335,5 @@ class PalOptimizer(Optimizer):
             yield
         finally:
             torch.set_rng_state(cpu_rng_state)
-            torch.cuda.set_rng_state(gpu_rng_state)
+            if torch.cuda.is_available():
+                torch.cuda.set_rng_state(gpu_rng_state)
